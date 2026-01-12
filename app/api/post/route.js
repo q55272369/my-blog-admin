@@ -18,13 +18,13 @@ function mdToBlocks(markdown) {
 
     if (trimmed.startsWith(':::lock')) {
       isLocking = true;
-      lockPassword = trimmed.replace(':::lock', '').trim() || '123';
+      // 🟢 修正：清理掉可能被 GET 带回来的多余星号
+      lockPassword = trimmed.replace(':::lock', '').replace(/\*/g, '').trim() || '123';
       lockContent = [];
       continue;
     }
 
     if (isLocking && trimmed === ':::') {
-      // 🟢 关键修改：构建带子块的 Callout
       blocks.push({
         object: 'block',
         type: 'callout',
@@ -32,9 +32,8 @@ function mdToBlocks(markdown) {
           rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }],
           icon: { type: "emoji", emoji: "🔒" },
           color: "gray_background",
-          // 🚀 在子块里放入原生分割线和正文
           children: [
-            { object: 'block', type: 'divider', divider: {} }, // 👈 原生分割线
+            { object: 'block', type: 'divider', divider: {} },
             ...lockContent.map(contentLine => ({
               object: 'block',
               type: 'paragraph',
@@ -54,16 +53,30 @@ function mdToBlocks(markdown) {
 
     if (!trimmed) {
       blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } });
+      continue;
+    }
+
+    // 🟢 关键：识别 Markdown 图片语法，生成 Notion 原生 Image 块
+    const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
+    if (imgMatch) {
+      blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } });
+      continue;
+    }
+
+    if (trimmed.startsWith('# ')) {
+      blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } });
     } else {
-      const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
-      if (imgMatch) {
-        blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1] } } });
-      } else if (trimmed.startsWith('# ')) {
-        blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } });
-      } else {
-        // 简单处理加粗和链接
-        blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: trimmed } }] } });
+      // 普通文本处理（处理简单的粗体和链接）
+      const richText = [];
+      const parts = trimmed.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g).filter(Boolean);
+      for (const p of parts) {
+        if (p.startsWith('**')) richText.push({ text: { content: p.slice(2, -2) }, annotations: { bold: true } });
+        else if (p.startsWith('[')) {
+          const m = p.match(/\[([^\]]+)\]\(([^)]+)\)/);
+          if (m) richText.push({ text: { content: m[1], link: { url: m[2] } } });
+        } else richText.push({ text: { content: p } });
       }
+      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: richText } });
     }
   }
   return blocks;
@@ -75,11 +88,11 @@ export async function GET(request) {
     const page = await notion.pages.retrieve({ page_id: id });
     const mdblocks = await n2m.pageToMarkdown(id);
     
-    // 反向解析
     mdblocks.forEach(b => {
       if (b.type === 'callout' && b.parent.includes('LOCK:')) {
-        const pwd = b.parent.match(/LOCK:([^\n]+)/)?.[1] || '123';
-        // 过滤掉 md 转换过程中产生的额外横线字符
+        // 🟢 修正：彻底移除 GET 带来的加粗星号标识，保证编辑器纯净
+        const rawTitle = b.parent.split('\n')[0] || '';
+        const pwd = rawTitle.replace(/LOCK:/i, '').replace(/\*/g, '').trim();
         const body = b.parent.split('---').pop() || ''; 
         b.parent = `:::lock ${pwd}\n${body.trim()}\n:::`;
       }
@@ -128,7 +141,6 @@ export async function POST(request) {
       await notion.pages.update({ page_id: id, properties: props });
       const children = await notion.blocks.children.list({ block_id: id });
       await Promise.all(children.results.map(b => notion.blocks.delete({ block_id: b.id })));
-      // 这里的 20 是为了防止一次性写入太多 block 触发速率限制
       for (let i = 0; i < newBlocks.length; i += 20) {
         await notion.blocks.children.append({ block_id: id, children: newBlocks.slice(i, i + 20) });
       }
