@@ -11,29 +11,24 @@ export default function Home() {
 
   const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' });
   const [currentId, setCurrentId] = useState(null);
-  const [rawLink, setRawLink] = useState('');
-  const [mdLink, setMdLink] = useState('');
-
-  const LSKY_URL = "https://x1file.top/dashboard"; 
-  const CLOUDREVE_URL = "https://x1file.top/home"; 
 
   useEffect(() => {
     setMounted(true);
     fetchPosts();
-    // 🟢 注入全局动态样式（用于处理悬浮和点击动画）
+    // 🟢 注入 Cloudreve 风格高级动画样式
     const style = document.createElement('style');
     style.innerHTML = `
-      body { background-color: #15202b; margin: 0; padding: 0; }
-      .interactive-row { transition: all 0.2s ease; cursor: pointer; border-bottom: 1px solid #38444d; }
-      .interactive-row:hover { background-color: rgba(255,255,255,0.03) !important; }
-      .btn-active:active { transform: scale(0.96); }
-      .btn-hover { transition: all 0.2s ease; }
-      .btn-hover:hover { filter: brightness(90%); }
-      .delete-btn { opacity: 0.3; transition: all 0.2s; }
-      .interactive-row:hover .delete-btn { opacity: 1; }
-      ::-webkit-scrollbar { width: 8px; }
-      ::-webkit-scrollbar-track { background: #15202b; }
-      ::-webkit-scrollbar-thumb { background: #38444d; border-radius: 10px; }
+      body { background-color: #18181c; color: #e1e1e3; margin: 0; font-family: "Inter", system-ui, sans-serif; }
+      .row-container { position: relative; display: flex; align-items: center; background: #202024; margin-bottom: 8px; border-radius: 8px; overflow: hidden; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid #2d2d30; }
+      .row-container:hover { border-color: #3e3e42; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+      .row-content { flex: 1; padding: 16px 20px; transition: padding-right 0.3s; }
+      .delete-drawer { position: absolute; right: 0; top: 0; height: 100%; width: 0; background: #ff4d4f; display: flex; align-items: center; justifyContent: center; overflow: hidden; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); color: #fff; font-weight: bold; font-size: 13px; }
+      .row-container:hover .delete-drawer { width: 100px; }
+      .tag-chip { background: #2d2d32; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #a1a1a6; margin-right: 5px; cursor: pointer; transition: 0.2s; }
+      .tag-chip:hover { background: #3e3e42; color: #fff; }
+      .btn-click:active { transform: scale(0.97); }
+      input, select, textarea { transition: border 0.2s; }
+      input:focus, textarea:focus { border-color: #007aff !important; }
     `;
     document.head.appendChild(style);
   }, []);
@@ -50,7 +45,10 @@ export default function Home() {
     } finally { setLoading(false); }
   }
 
-  if (!mounted) return null;
+  // 🟢 智能 Slug 生成逻辑 (p-当前时间戳)
+  const generateAutoSlug = () => {
+    return 'p-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+  };
 
   const handleEdit = (post) => {
     setLoading(true);
@@ -62,12 +60,11 @@ export default function Home() {
           setCurrentId(post.id);
           setView('edit');
         }
-      })
-      .finally(() => setLoading(false));
+      }).finally(() => setLoading(false));
   };
 
   const handleSave = async () => {
-    if (!form.title || !form.slug) return alert('标题和 Slug 必填');
+    if (!form.title) return alert('标题不能为空');
     setLoading(true);
     const res = await fetch('/api/post', {
       method: 'POST',
@@ -75,104 +72,122 @@ export default function Home() {
       body: JSON.stringify({ ...form, id: currentId }),
     });
     if ((await res.json()).success) {
-      alert('🎉 同步完成');
       setView('list');
       fetchPosts();
-    } else { setLoading(false); }
+    } else { alert('保存失败'); setLoading(false); }
   };
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
-    if (!confirm('确定要删除（归档）吗？')) return;
+    if (!confirm('确定彻底删除吗？')) return;
     setLoading(true);
     await fetch(`/api/post?id=${id}`, { method: 'DELETE' });
     fetchPosts();
   };
 
+  if (!mounted) return null;
+
   return (
-    <div style={styles.fullPage}>
-      <div style={styles.container}>
-        <header style={styles.header}>
-          <div style={styles.logo}>
-            <span style={{color:'#1d9bf0'}}>Notion</span><span style={{fontWeight:'300'}}>Pro</span>
-          </div>
-          {view === 'edit' && <button onClick={() => setView('list')} className="btn-active btn-hover" style={styles.btnSecondary}>返回</button>}
+    <div style={css.page}>
+      <div style={css.container}>
+        <header style={css.header}>
+          <div style={css.logo}>CMS<span style={{color:'#007aff'}}>CONSOLE</span></div>
+          {view === 'edit' && <button onClick={() => setView('list')} className="btn-click" style={css.btnBack}>取消并返回</button>}
         </header>
 
         {view === 'list' ? (
           <main>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:'24px'}}>
-                <div style={styles.tabContainer}>
+            <div style={css.listHeader}>
+                <div style={css.tabs}>
                     {['Post', 'Page', 'Widget'].map(t => (
-                        <button key={t} onClick={() => setActiveTab(t)} style={activeTab === t ? styles.tabActive : styles.tab}>{t}</button>
+                        <button key={t} onClick={() => setActiveTab(t)} style={activeTab === t ? css.tabActive : css.tab}>{t}</button>
                     ))}
                 </div>
-                <button onClick={() => { setForm({title:'', slug:'', excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type:'Post', date: new Date().toISOString().split('T')[0]}); setCurrentId(null); setView('edit'); }} className="btn-active btn-hover" style={styles.btnPrimary}>发布新内容</button>
+                <button onClick={() => { 
+                    setForm({title:'', slug: generateAutoSlug(), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type:'Post', date: new Date().toISOString().split('T')[0]}); 
+                    setCurrentId(null); 
+                    setView('edit'); 
+                }} className="btn-click" style={css.btnNew}>新建{activeTab}</button>
             </div>
 
-            <div style={styles.listCard}>
-              {loading && <div style={{padding:'40px', textAlign:'center', color:'#8899a6'}}>正在同步 Notion 数据...</div>}
+            <div style={css.listBody}>
+              {loading && <div style={{padding:'40px', textAlign:'center', color:'#666'}}>正在载入云端数据...</div>}
               {!loading && posts.filter(p => p.type === activeTab).map(p => (
-                <div key={p.id} onClick={() => handleEdit(p)} className="interactive-row" style={styles.listRow}>
-                  <div style={{flex: 1}}>
-                    <div style={styles.rowTitle}>{p.title}</div>
-                    <div style={styles.rowSlug}>{p.slug || 'no-slug'} · {p.category} · {p.date}</div>
+                <div key={p.id} onClick={() => handleEdit(p)} className="row-container">
+                  <div className="row-content">
+                    <div style={css.rowMain}>
+                        <div style={css.rowTitle}>{p.title}</div>
+                        <div style={css.rowMeta}>{p.category} · {p.date || '无日期'}</div>
+                    </div>
                   </div>
-                  <div onClick={(e) => handleDelete(e, p.id)} className="delete-btn btn-active" style={styles.deleteIcon}>🗑️</div>
+                  {/* 🟢 高级红色侧滑删除区 */}
+                  <div onClick={(e) => handleDelete(e, p.id)} className="delete-drawer">
+                    删除内容
+                  </div>
                 </div>
               ))}
             </div>
           </main>
         ) : (
-          <main style={styles.formCard}>
-            <div style={styles.grid2}>
-              <div><label style={styles.label}>标题</label><input style={styles.input} value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
-              <div><label style={styles.label}>发布日期</label><input type="date" style={styles.input} value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
+          <main style={css.formPanel}>
+            <div style={css.fieldGroup}>
+                <div style={{flex:3}}>
+                    <label style={css.label}>标题</label>
+                    <input style={css.input} value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="输入标题..." />
+                </div>
+                <div style={{flex:1}}>
+                    <label style={css.label}>Slug (系统已自动生成且锁定)</label>
+                    <input style={{...css.input, background:'#18181c', color:'#666'}} value={form.slug} disabled />
+                </div>
             </div>
 
-            <div style={styles.grid3}>
-              <div><label style={styles.label}>分类</label>
-                <input list="categories" style={styles.input} value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
-                <datalist id="categories">{options.categories.map(c => <option key={c} value={c} />)}</datalist>
+            <div style={css.grid3}>
+              <div>
+                <label style={css.label}>分类 (下拉选择或手动输入)</label>
+                <input list="cats" style={css.input} value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
+                <datalist id="cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist>
               </div>
-              <div><label style={styles.label}>标签</label><input style={styles.input} placeholder="逗号隔开" value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} /></div>
-              <div><label style={styles.label}>类型</label>
-                <select style={styles.input} value={form.type} onChange={e => setForm({...form, type: e.target.value})}>
+              <div>
+                <label style={css.label}>日期</label>
+                <input type="date" style={css.input} value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+              </div>
+              <div>
+                <label style={css.label}>内容类型</label>
+                <select style={css.input} value={form.type} onChange={e => setForm({...form, type: e.target.value})}>
                   <option value="Post">Post</option><option value="Page">Page</option><option value="Widget">Widget</option>
                 </select>
               </div>
             </div>
 
-            <div style={styles.grid2}>
-              <div><label style={styles.label}>Slug (别名)</label><input style={styles.input} value={form.slug} onChange={e => setForm({...form, slug: e.target.value})} /></div>
-              <div><label style={styles.label}>状态</label>
-                <select style={styles.input} value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
-                  <option value="Published">已发布 (Visible)</option>
-                  <option value="Hidden">已隐藏 (Hidden)</option>
-                </select>
-              </div>
+            <label style={css.label}>标签 (点击快捷添加，或用逗号隔开输入)</label>
+            <div style={{marginBottom:'15px'}}>
+                <input style={{...css.input, marginBottom:'8px'}} value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} />
+                <div style={{display:'flex', gap:'5px', flexWrap:'wrap'}}>
+                    {options.tags.map(t => (
+                        <span key={t} className="tag-chip" onClick={() => {
+                            if(!form.tags.includes(t)) setForm({...form, tags: form.tags ? `${form.tags},${t}` : t})
+                        }}>{t}</span>
+                    ))}
+                </div>
             </div>
 
-            <label style={styles.label}>封面图 URL / 文章摘要</label>
-            <div style={{display:'flex', gap:'10px', marginBottom:'20px'}}>
-                <input style={{...styles.input, marginBottom:0, flex:1}} placeholder="Cover URL" value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} />
-                <input style={{...styles.input, marginBottom:0, flex:1}} placeholder="Excerpt" value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} />
+            <div style={css.grid2}>
+                <div><label style={css.label}>封面图链接</label><input style={css.input} value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} /></div>
+                <div><label style={css.label}>状态</label>
+                  <select style={css.input} value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
+                    <option value="Published">公开</option><option value="Hidden">隐藏</option>
+                  </select>
+                </div>
             </div>
 
-            <div style={styles.toolBox}>
-              <div style={{display:'flex', gap:'8px'}}>
-                <button onClick={() => window.open(LSKY_URL)} style={styles.toolBtn}>图床</button>
-                <button onClick={() => window.open(CLOUDREVE_URL)} style={styles.toolBtn}>网盘</button>
-              </div>
-              <input style={styles.toolInput} placeholder="输入链接转 MD" value={rawLink} onChange={e => setRawLink(e.target.value)} />
-              <button onClick={() => { const fn = rawLink.split('/').pop(); setMdLink(`![${fn}](${rawLink})`); }} style={styles.toolAction}>转换</button>
-              {mdLink && <span style={styles.mdCode} onClick={() => {navigator.clipboard.writeText(mdLink); alert('已复制')}}>{mdLink}</span>}
-            </div>
+            <label style={css.label}>摘要 (Excerpt)</label>
+            <input style={css.input} value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} />
 
-            <textarea style={styles.textarea} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="Markdown 内容..." />
+            <label style={css.label}>正文 (Markdown)</label>
+            <textarea style={css.textarea} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="在这里书写..." />
 
-            <button onClick={handleSave} disabled={loading} className="btn-active btn-hover" style={styles.btnSave}>
-                {loading ? '正在同步至全球边缘节点...' : '确认发布更新'}
+            <button onClick={handleSave} disabled={loading} className="btn-click" style={css.btnSave}>
+                {loading ? '正在同步至 Notion 数据库...' : '💾 保存并立即同步'}
             </button>
           </main>
         )}
@@ -181,32 +196,27 @@ export default function Home() {
   );
 }
 
-// 🎨 X / Twitter 风格主题变量
-const styles = {
-  fullPage: { width: '100%', minHeight: '100vh', background: '#15202b', color: '#fff' },
-  container: { maxWidth: '800px', margin: '0 auto', padding: '0 20px 60px 20px' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 0', position:'sticky', top:0, background:'#15202b', zIndex:10 },
-  logo: { fontSize: '22px', fontWeight: '800', cursor: 'default' },
-  tabContainer: { display: 'flex', background: '#253341', borderRadius: '30px', padding: '4px' },
-  tab: { padding: '8px 24px', background: 'transparent', border: 'none', color: '#8899a6', cursor: 'pointer', borderRadius: '30px', fontWeight: 'bold' },
-  tabActive: { padding: '8px 24px', background: '#1d9bf0', border: 'none', color: '#fff', borderRadius: '30px', fontWeight: 'bold' },
-  btnPrimary: { padding: '10px 24px', background: '#1d9bf0', color: '#fff', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold' },
-  btnSecondary: { padding: '6px 16px', background: 'transparent', color: '#fff', border: '1px solid #536471', borderRadius: '30px', cursor: 'pointer' },
-  listCard: { border: '1px solid #38444d', borderRadius: '16px', overflow: 'hidden' },
-  listRow: { display: 'flex', padding: '16px 20px', alignItems: 'center' },
-  rowTitle: { fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom:'4px' },
-  rowSlug: { fontSize: '13px', color: '#8899a6' },
-  deleteIcon: { cursor: 'pointer', padding: '10px', borderRadius: '50%' },
-  formCard: { background: '#15202b' },
-  label: { display: 'block', fontSize: '13px', color: '#8899a6', marginBottom: '8px', fontWeight: '700' },
-  input: { width: '100%', padding: '14px', background: '#15202b', border: '1px solid #38444d', borderRadius: '4px', color: '#fff', marginBottom: '20px', boxSizing: 'border-box', fontSize: '15px' },
-  grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' },
-  grid3: { display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', gap: '16px' },
-  textarea: { width: '100%', height: '500px', background: 'transparent', border: '1px solid #38444d', borderRadius: '4px', color: '#fff', padding: '16px', fontSize: '16px', lineHeight: '1.6', boxSizing: 'border-box', outline: 'none' },
-  toolBox: { background: '#1e2732', padding: '12px', borderRadius: '12px', marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center' },
-  toolBtn: { padding: '6px 12px', background: '#253341', border: 'none', color: '#1d9bf0', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
-  toolInput: { flex: 1, padding: '8px', background: '#15202b', border: '1px solid #38444d', color: '#fff', borderRadius: '4px' },
-  toolAction: { padding: '8px 16px', background: '#1d9bf0', color: '#fff', border: 'none', borderRadius: '20px', cursor: 'pointer', fontWeight:'bold' },
-  mdCode: { fontSize: '11px', color: '#1d9bf0', background: 'rgba(29,155,240,0.1)', padding: '4px 8px', borderRadius: '4px', cursor:'copy' },
-  btnSave: { width: '100%', padding: '16px', background: '#eff3f4', color: '#0f1419', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: '900', fontSize: '16px', marginTop: '24px' }
+// 🎨 Cloudreve 风格高级灰主题
+const css = {
+  page: { minHeight: '100vh' },
+  container: { maxWidth: '900px', margin: '0 auto', padding: '40px 20px' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
+  logo: { fontSize: '20px', fontWeight: '900', color: '#fff' },
+  listHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
+  tabs: { background: '#252529', padding: '4px', borderRadius: '8px', display: 'flex' },
+  tab: { padding: '6px 20px', border: 'none', background: 'none', color: '#9ea0a5', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
+  tabActive: { padding: '6px 20px', border: 'none', background: '#3e3e42', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
+  btnNew: { padding: '10px 20px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' },
+  btnBack: { padding: '8px 16px', background: '#2d2d30', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' },
+  listBody: { display: 'flex', flexDirection: 'column' },
+  rowTitle: { fontSize: '15px', fontWeight: '600', color: '#f1f1f3', marginBottom: '4px' },
+  rowMeta: { fontSize: '12px', color: '#9ea0a5' },
+  formPanel: { background: '#202024', padding: '30px', borderRadius: '12px', border: '1px solid #2d2d30' },
+  label: { display: 'block', fontSize: '11px', color: '#9ea0a5', marginBottom: '8px', fontWeight: 'bold', textTransform: 'uppercase' },
+  input: { width: '100%', padding: '12px', background: '#252529', border: '1px solid #333', borderRadius: '6px', color: '#fff', marginBottom: '20px', boxSizing: 'border-box', outline: 'none' },
+  grid2: { display: 'flex', gap: '20px' },
+  grid3: { display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '20px' },
+  fieldGroup: { display: 'flex', gap: '20px' },
+  textarea: { width: '100%', height: '400px', background: '#252529', border: '1px solid #333', borderRadius: '6px', color: '#fff', padding: '15px', fontFamily: 'monospace', lineHeight: '1.6', boxSizing: 'border-box', outline: 'none' },
+  btnSave: { width: '100%', padding: '16px', background: '#fff', color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', marginTop: '20px' }
 };
