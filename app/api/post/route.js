@@ -7,29 +7,18 @@ export const runtime = 'edge';
 const notion = new Client({ auth: process.env.NOTION_KEY });
 const n2m = new NotionToMarkdown({ notionClient: notion });
 
-// 🛠️ 增强版转换器：支持图片嵌入、标题、加粗、链接
 function smartMdToBlocks(markdown) {
   const lines = markdown.split('\n');
   const blocks = [];
   for (let line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-
-    // 1. 图片语法 ![] (url)
     const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
     if (imgMatch) {
       blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1] } } });
-      continue;
-    }
-
-    // 2. 标题语法 # ## ###
-    if (trimmed.startsWith('# ')) {
+    } else if (trimmed.startsWith('# ')) {
       blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ type: 'text', text: { content: trimmed.replace('# ', '') } }] } });
-    } else if (trimmed.startsWith('## ')) {
-      blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ type: 'text', text: { content: trimmed.replace('## ', '') } }] } });
-    } 
-    // 3. 普通文本 (带简单的加粗和链接识别)
-    else {
+    } else {
       blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: trimmed } }] } });
     }
   }
@@ -77,9 +66,10 @@ export async function POST(request) {
       "tags": { multi_select: (tags || "").split(',').filter(Boolean).map(t => ({ name: t.trim() })) },
       "status": { status: { name: status } },
       "type": { select: { name: type } },
-      "cover": { url: cover || "" },
       "update_date": { date: { start: now } }
     };
+
+    if (cover) { props["cover"] = { url: cover }; }
 
     if (id) {
       await notion.pages.update({ page_id: id, properties: props });
@@ -95,4 +85,16 @@ export async function POST(request) {
     }
     return NextResponse.json({ success: true });
   } catch (error) { return NextResponse.json({ success: false, error: error.message }); }
+}
+
+// 🟢 新增删除功能 (归档页面)
+export async function DELETE(request) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
+  try {
+    await notion.pages.update({ page_id: id, archived: true });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: error.message });
+  }
 }
