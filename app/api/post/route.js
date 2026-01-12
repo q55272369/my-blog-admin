@@ -9,20 +9,14 @@ const n2m = new NotionToMarkdown({ notionClient: notion });
 
 function smartMdToBlocks(markdown) {
   const lines = markdown.split('\n');
-  const blocks = [];
-  for (let line of lines) {
+  return lines.map(line => {
     const trimmed = line.trim();
-    if (!trimmed) continue;
+    if (!trimmed) return { object: 'block', type: 'paragraph', paragraph: { rich_text: [] } };
     const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
-    if (imgMatch) {
-      blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1] } } });
-    } else if (trimmed.startsWith('# ')) {
-      blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ type: 'text', text: { content: trimmed.replace('# ', '') } }] } });
-    } else {
-      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: trimmed } }] } });
-    }
-  }
-  return blocks;
+    if (imgMatch) return { object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1] } } };
+    if (trimmed.startsWith('# ')) return { object: 'block', type: 'heading_1', heading_1: { rich_text: [{ type: 'text', text: { content: trimmed.replace('# ', '') } }] } };
+    return { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: trimmed } }] } };
+  });
 }
 
 export async function GET(request) {
@@ -44,6 +38,7 @@ export async function GET(request) {
           cover: p.cover?.url || '',
           type: p.type?.select?.name || 'Post',
           status: p.status?.status?.name || 'Published',
+          date: p.date?.date?.start || '', // 🟢 读取日期
           content: mdString.parent
         }
     });
@@ -53,7 +48,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { id, title, content, slug, excerpt, category, tags, cover, type, status } = body;
+    const { id, title, content, slug, excerpt, category, tags, cover, type, status, date } = body;
     const dbId = process.env.NOTION_DATABASE_ID;
     const newBlocks = smartMdToBlocks(content);
     const now = new Date().toISOString();
@@ -62,11 +57,21 @@ export async function POST(request) {
       "title": { title: [{ text: { content: title } }] },
       "slug": { rich_text: [{ text: { content: slug } }] },
       "excerpt": { rich_text: [{ text: { content: excerpt || "" } }] },
-      "category": { select: { name: category || "未分类" } },
-      "tags": { multi_select: (tags || "").split(',').filter(Boolean).map(t => ({ name: t.trim() })) },
       "status": { status: { name: status } },
       "type": { select: { name: type } },
       "update_date": { date: { start: now } }
+    };
+
+    // 🟢 处理日期 (如果没选则留空或填当前)
+    if (date) { props["date"] = { date: { start: date } }; }
+    
+    // 🟢 处理分类 (Select)
+    if (category) { props["category"] = { select: { name: category } }; }
+    else { props["category"] = null; }
+
+    // 🟢 处理标签 (Multi-select)
+    props["tags"] = { 
+      multi_select: (tags || "").split(',').filter(t => t.trim()).map(t => ({ name: t.trim() })) 
     };
 
     if (cover) { props["cover"] = { url: cover }; }
@@ -74,12 +79,17 @@ export async function POST(request) {
     if (id) {
       await notion.pages.update({ page_id: id, properties: props });
       const children = await notion.blocks.children.list({ block_id: id });
-      for (const block of children.results) { await notion.blocks.delete({ block_id: block.id }); }
+      
+      // 🚀 性能优化：并发删除旧块 (速度大幅提升)
+      await Promise.all(children.results.map(block => 
+        notion.blocks.delete({ block_id: block.id })
+      ));
+      
       await notion.blocks.children.append({ block_id: id, children: newBlocks });
     } else {
       await notion.pages.create({
         parent: { database_id: dbId },
-        properties: { ...props, "date": { date: { start: now } } },
+        properties: props,
         children: newBlocks,
       });
     }
@@ -87,14 +97,10 @@ export async function POST(request) {
   } catch (error) { return NextResponse.json({ success: false, error: error.message }); }
 }
 
-// 🟢 新增删除功能 (归档页面)
 export async function DELETE(request) {
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get('id');
+  const id = new URL(request.url).searchParams.get('id');
   try {
     await notion.pages.update({ page_id: id, archived: true });
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message });
-  }
+  } catch (error) { return NextResponse.json({ success: false }); }
 }
