@@ -21,7 +21,7 @@ export default function Home() {
   const textAreaRef = useRef(null);
   const isFormValid = form.title.trim() !== '' && form.category.trim() !== '' && form.date !== '';
 
-  const LSKY_URL = "https://x1file.top/dashboard"; 
+  const LSKY_URL = "https://x1pic.top/dashboard"; 
   const CLOUDREVE_URL = "https://x1file.top/home"; 
 
   useEffect(() => {
