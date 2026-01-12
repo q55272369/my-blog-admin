@@ -6,31 +6,28 @@ export const runtime = 'edge';
 const notion = new Client({ auth: process.env.NOTION_KEY });
 const n2m = new NotionToMarkdown({ notionClient: notion });
 
-// 🟢 高级解析器：识别文本内部的 加粗、链接、颜色
+// 🟢 增强版富文本解析：支持 [文字]{颜色} 语法
 function parseRichText(text) {
   const richText = [];
-  // 匹配规则：加粗 **text**, 链接 [text](url), 颜色 {color:red}(text)
-  // 为了稳定，这里采用分步处理逻辑
-  let remainingText = text;
-
-  // 这里使用一个极简的解析逻辑，满足基本需求
-  // 1. 匹配加粗和链接
-  const regex = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g;
+  // 匹配加粗 **text**, 链接 [text](url), 颜色 [text]{color}
+  const regex = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\)|\[[^\]]+\]\{[a-z]+\})/g;
   let match;
   let lastIndex = 0;
 
   while ((match = regex.exec(text)) !== null) {
-    // 处理匹配项之前的普通文本
     if (match.index > lastIndex) {
       richText.push({ text: { content: text.substring(lastIndex, match.index) } });
     }
 
     const part = match[0];
     if (part.startsWith('**')) {
-      // 加粗
       richText.push({ text: { content: part.slice(2, -2) }, annotations: { bold: true } });
+    } else if (part.includes(']{')) {
+      // 处理颜色样式 [文字]{red}
+      const content = part.match(/\[([^\]]+)\]/)[1];
+      const color = part.match(/\{([^}]+)\}/)[1];
+      richText.push({ text: { content: content }, annotations: { color: color } });
     } else if (part.startsWith('[')) {
-      // 链接
       const linkText = part.match(/\[([^\]]+)\]/)[1];
       const linkUrl = part.match(/\(([^)]+)\)/)[1];
       richText.push({ text: { content: linkText, link: { url: linkUrl } } });
@@ -38,49 +35,22 @@ function parseRichText(text) {
     lastIndex = regex.lastIndex;
   }
 
-  // 处理剩余文本
   if (lastIndex < text.length) {
     richText.push({ text: { content: text.substring(lastIndex) } });
   }
-
   return richText.length > 0 ? richText : [{ text: { content: text } }];
 }
 
 function smartBlocks(markdown) {
   const lines = markdown.split('\n');
-  const blocks = [];
-  for (let line of lines) {
+  return lines.map(line => {
     const trimmed = line.trim();
-    if (!trimmed) {
-      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } });
-      continue;
-    }
-
-    // 图片识别
+    if (!trimmed) return { object: 'block', type: 'paragraph', paragraph: { rich_text: [] } };
     const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
-    if (imgMatch) {
-      blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1] } } });
-      continue;
-    }
-
-    // 标题识别 (H1, H2, H3)
-    if (trimmed.startsWith('# ')) {
-      blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } });
-    } else if (trimmed.startsWith('## ')) {
-      blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ text: { content: trimmed.replace('## ', '') } }] } });
-    } else if (trimmed.startsWith('### ')) {
-      blocks.push({ object: 'block', type: 'heading_3', heading_3: { rich_text: [{ text: { content: trimmed.replace('### ', '') } }] } });
-    } 
-    // 引用识别
-    else if (trimmed.startsWith('> ')) {
-      blocks.push({ object: 'block', type: 'quote', quote: { rich_text: parseRichText(trimmed.replace('> ', '')) } });
-    }
-    // 普通段落 (支持内部富文本)
-    else {
-      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: parseRichText(trimmed) } });
-    }
-  }
-  return blocks;
+    if (imgMatch) return { object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1] } } };
+    if (trimmed.startsWith('# ')) return { object: 'block', type: 'heading_1', heading_1: { rich_text: [{ type: 'text', text: { content: trimmed.replace('# ', '') } }] } };
+    return { object: 'block', type: 'paragraph', paragraph: { rich_text: parseRichText(trimmed) } };
+  });
 }
 
 export async function GET(request) {
@@ -114,8 +84,6 @@ export async function POST(request) {
     const { id, title, content, slug, excerpt, category, tags, cover, type, status, date } = body;
     const dbId = process.env.NOTION_DATABASE_ID;
     const newBlocks = smartBlocks(content);
-    const now = new Date().toISOString();
-
     const props = {
       "title": { title: [{ text: { content: title || "无标题" } }] },
       "slug": { rich_text: [{ text: { content: slug || "" } }] },
@@ -124,25 +92,20 @@ export async function POST(request) {
       "tags": { multi_select: (tags || "").split(',').filter(t => t.trim()).map(t => ({ name: t.trim() })) },
       "status": { status: { name: status || "Published" } },
       "type": { select: { name: type || "Post" } },
-      "update_date": { date: { start: now } }
+      "update_date": { date: { start: new Date().toISOString() } },
+      "date": date ? { date: { start: date } } : null
     };
-    if (date) props["date"] = { date: { start: date } };
     if (cover) props["cover"] = { url: cover };
 
     if (id) {
       await notion.pages.update({ page_id: id, properties: props });
       const children = await notion.blocks.children.list({ block_id: id });
-      const oldBlockIds = children.results.map(b => b.id);
-      for (let i = 0; i < oldBlockIds.length; i += 10) {
-        const batch = oldBlockIds.slice(i, i + 10);
-        await Promise.all(batch.map(bid => notion.blocks.delete({ block_id: bid })));
-      }
+      await Promise.all(children.results.map(b => notion.blocks.delete({ block_id: b.id })));
       for (let i = 0; i < newBlocks.length; i += 20) {
-        const batch = newBlocks.slice(i, i + 20);
-        await notion.blocks.children.append({ block_id: id, children: batch });
+        await notion.blocks.children.append({ block_id: id, children: newBlocks.slice(i, i + 20) });
       }
     } else {
-      await notion.pages.create({ parent: { database_id: dbId }, properties: props, children: newBlocks.slice(0, 100) });
+      await notion.pages.create({ parent: { database_id: dbId }, properties: props, children: newBlocks.slice(0, 50) });
     }
     return NextResponse.json({ success: true });
   } catch (error) { return NextResponse.json({ success: false, error: error.message }); }
