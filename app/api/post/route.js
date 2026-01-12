@@ -18,8 +18,8 @@ function mdToBlocks(markdown) {
 
     if (trimmed.startsWith(':::lock')) {
       isLocking = true;
-      // 🟢 修正：清理掉可能被 GET 带回来的多余星号
-      lockPassword = trimmed.replace(':::lock', '').replace(/\*/g, '').trim() || '123';
+      // 🟢 防御性清理：移除所有可能的干扰符
+      lockPassword = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
       lockContent = [];
       continue;
     }
@@ -32,13 +32,17 @@ function mdToBlocks(markdown) {
           rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }],
           icon: { type: "emoji", emoji: "🔒" },
           color: "gray_background",
+          // 🚀 核心优化：让 Callout 内部支持原生积木
           children: [
             { object: 'block', type: 'divider', divider: {} },
-            ...lockContent.map(contentLine => ({
-              object: 'block',
-              type: 'paragraph',
-              paragraph: { rich_text: [{ text: { content: contentLine || " " } }] }
-            }))
+            ...lockContent.map(contentLine => {
+              const imgMatch = contentLine.trim().match(/!\[.*\]\((.*)\)/);
+              if (imgMatch) {
+                // 🟢 重点：如果在加密块内发现图片，生成原生 Image 积木
+                return { object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } };
+              }
+              return { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: contentLine || " " } }] } };
+            })
           ]
         }
       });
@@ -56,7 +60,6 @@ function mdToBlocks(markdown) {
       continue;
     }
 
-    // 🟢 关键：识别 Markdown 图片语法，生成 Notion 原生 Image 块
     const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
     if (imgMatch) {
       blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } });
@@ -66,7 +69,6 @@ function mdToBlocks(markdown) {
     if (trimmed.startsWith('# ')) {
       blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } });
     } else {
-      // 普通文本处理（处理简单的粗体和链接）
       const richText = [];
       const parts = trimmed.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g).filter(Boolean);
       for (const p of parts) {
@@ -90,11 +92,18 @@ export async function GET(request) {
     
     mdblocks.forEach(b => {
       if (b.type === 'callout' && b.parent.includes('LOCK:')) {
-        // 🟢 修正：彻底移除 GET 带来的加粗星号标识，保证编辑器纯净
-        const rawTitle = b.parent.split('\n')[0] || '';
-        const pwd = rawTitle.replace(/LOCK:/i, '').replace(/\*/g, '').trim();
-        const body = b.parent.split('---').pop() || ''; 
-        b.parent = `:::lock ${pwd}\n${body.trim()}\n:::`;
+        // 🟢 深度清理逻辑：只保留核心密码和纯净内容
+        const lines = b.parent.split('\n');
+        const pwdMatch = lines[0].match(/LOCK:([a-zA-Z0-9]+)/);
+        const pwd = pwdMatch ? pwdMatch[1] : '123';
+        
+        // 过滤掉带 >、横线、图标的内容行
+        const cleanBody = lines.slice(1)
+          .map(l => l.replace(/^>\s*/, '').replace(/^[🔒\s*-]+/, '').trim())
+          .filter(l => l !== '' && !l.includes('───'))
+          .join('\n');
+
+        b.parent = `:::lock ${pwd}\n${cleanBody}\n:::`;
       }
     });
 
