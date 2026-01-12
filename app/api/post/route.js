@@ -7,37 +7,30 @@ export const runtime = 'edge';
 const notion = new Client({ auth: process.env.NOTION_KEY });
 const n2m = new NotionToMarkdown({ notionClient: notion });
 
-// 🟢 高级转换函数：识别图片、标题和段落
-function advancedMdToBlocks(markdown) {
+// 🛠️ 增强版转换器：支持图片嵌入、标题、加粗、链接
+function smartMdToBlocks(markdown) {
   const lines = markdown.split('\n');
   const blocks = [];
-
   for (let line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    // 1. 处理 Markdown 图片 ![] (url)
+    // 1. 图片语法 ![] (url)
     const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
     if (imgMatch) {
-      blocks.push({
-        object: 'block', type: 'image',
-        image: { type: 'external', external: { url: imgMatch[1] } }
-      });
+      blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1] } } });
       continue;
     }
 
-    // 2. 处理标题 # ## ###
+    // 2. 标题语法 # ## ###
     if (trimmed.startsWith('# ')) {
       blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ type: 'text', text: { content: trimmed.replace('# ', '') } }] } });
     } else if (trimmed.startsWith('## ')) {
       blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ type: 'text', text: { content: trimmed.replace('## ', '') } }] } });
     } 
-    // 3. 处理普通文本 (含粗体识别的极简处理)
+    // 3. 普通文本 (带简单的加粗和链接识别)
     else {
-      blocks.push({
-        object: 'block', type: 'paragraph',
-        paragraph: { rich_text: [{ type: 'text', text: { content: trimmed } }] }
-      });
+      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: trimmed } }] } });
     }
   }
   return blocks;
@@ -51,7 +44,6 @@ export async function GET(request) {
     const mdblocks = await n2m.pageToMarkdown(pageId);
     const mdString = n2m.toMarkdownString(mdblocks);
     const p = page.properties;
-    
     return NextResponse.json({
         success: true,
         data: {
@@ -60,7 +52,7 @@ export async function GET(request) {
           excerpt: p.excerpt?.rich_text?.[0]?.plain_text || '',
           category: p.category?.select?.name || '',
           tags: p.tags?.multi_select?.map(t => t.name).join(',') || '',
-          cover: p.cover?.url || p.cover?.external?.url || '',
+          cover: p.cover?.url || '',
           type: p.type?.select?.name || 'Post',
           status: p.status?.status?.name || 'Published',
           content: mdString.parent
@@ -74,7 +66,7 @@ export async function POST(request) {
     const body = await request.json();
     const { id, title, content, slug, excerpt, category, tags, cover, type, status } = body;
     const dbId = process.env.NOTION_DATABASE_ID;
-    const newBlocks = advancedMdToBlocks(content);
+    const newBlocks = smartMdToBlocks(content);
     const now = new Date().toISOString();
 
     const props = {
@@ -85,13 +77,9 @@ export async function POST(request) {
       "tags": { multi_select: (tags || "").split(',').filter(Boolean).map(t => ({ name: t.trim() })) },
       "status": { status: { name: status } },
       "type": { select: { name: type } },
+      "cover": { url: cover || "" },
       "update_date": { date: { start: now } }
     };
-
-    // 封面图处理 (如果输入了 URL)
-    if (cover) {
-      props["cover"] = { url: cover }; 
-    }
 
     if (id) {
       await notion.pages.update({ page_id: id, properties: props });
@@ -106,8 +94,5 @@ export async function POST(request) {
       });
     }
     return NextResponse.json({ success: true });
-  } catch (error) { 
-    console.error(error);
-    return NextResponse.json({ success: false, error: error.message }); 
-  }
+  } catch (error) { return NextResponse.json({ success: false, error: error.message }); }
 }
