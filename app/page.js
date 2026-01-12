@@ -34,8 +34,9 @@ export default function Home() {
       .search-bar { width: 100%; padding: 12px 15px; background: #18181c; border: 1px solid #333; border-radius: 10px; color: #fff; margin-bottom: 20px; box-sizing: border-box; }
       .tag-chip { background: #2d2d32; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #888; margin: 0 5px 5px 0; cursor: pointer; }
       .tag-chip:hover { color: #fff; background: #3e3e42; }
-      .toolbar-btn { background: #2d2d32; color: #fff; border: 1px solid #444; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; }
-      .required-star { color: #ff4d4f !important; margin-left: 4px; font-weight: bold; }
+      .toolbar-btn { background: #2d2d32; color: #fff; border: 1px solid #444; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s; }
+      .toolbar-btn:hover { border-color: #007aff; }
+      .required-star { color: #ff4d4f !important; margin-left: 4px; font-weight: bold; display: inline; }
       input, select, textarea { width: 100%; padding: 14px; background: #18181c; border: 1px solid #333; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 15px; outline: none; }
       input:focus, textarea:focus { border-color: #007aff; }
     `;
@@ -63,11 +64,7 @@ export default function Home() {
 
   const convertLinks = () => {
     if(!rawLinks.trim()) return;
-    const converted = rawLinks.split('\n').filter(l => l.trim()).map(url => {
-        const fn = url.trim().split('/').pop() || 'image';
-        return `![${fn}](${url.trim()})`;
-    }).join('\n\n'); 
-    setMdLinks(converted); // 🟢 状态更新，UI 将显示蓝色结果区域
+    setMdLinks(rawLinks.split('\n').filter(l => l.trim()).map(u => `![image](${u.trim()})`).join('\n\n'));
   };
 
   const handleEdit = (post) => {
@@ -100,6 +97,7 @@ export default function Home() {
               <button onClick={() => { setForm({ title: '', slug: 'p-' + Date.now().toString(36), excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', date: new Date().toISOString().split('T')[0] }); setCurrentId(null); setView('edit'); }} style={{ padding: '10px 25px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>发布新内容</button>
             </div>
             <input className="search-bar" placeholder={`搜索 ${activeTab}...`} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            {loading && <p style={{textAlign:'center', color:'#666'}}>📡 载入中...</p>}
             {!loading && filteredPosts.map(p => (
               <div key={p.id} onClick={() => handleEdit(p)} className="list-card">
                 <div className="card-cover">
@@ -124,12 +122,11 @@ export default function Home() {
             <div style={{marginBottom:'20px'}}><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>封面图 URL</label><input value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} /></div>
             <div style={{marginBottom:'30px'}}><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>摘要</label><input value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} /></div>
 
-            {/* 批量素材助手 - 恢复最佳逻辑版 */}
             <div style={{background:'#18181c', padding:'20px', borderRadius:'12px', border:'1px solid #333', marginBottom:'30px'}}>
               <div style={{display:'flex', gap:'10px', marginBottom:'15px'}}><button onClick={() => window.open("https://x1file.top/dashboard")} className="toolbar-btn" style={{flex:1}}>🖼️ 打开图床</button><button onClick={() => window.open("https://x1file.top/home")} className="toolbar-btn" style={{flex:1}}>🎬 打开网盘</button></div>
-              <textarea style={{height:'60px', fontSize:'12px', background:'#121212', border:'1px solid #444'}} placeholder="在此粘贴一个或多个直链..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} />
+              <textarea style={{height:'60px', fontSize:'12px', background:'#121212', border:'1px solid #444'}} placeholder="粘贴直链转换..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} />
               <button onClick={convertLinks} style={{width:'100%', padding:'10px', background:'#333', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', marginTop:'10px', fontWeight:'bold'}}>转换 Markdown</button>
-              {mdLinks && <div style={{marginTop:'15px'}}><pre style={{background:'#000', padding:'10px', color:'#007aff', fontSize:'11px', whiteSpace:'pre-wrap'}}>{mdLinks}</pre><button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={{width:'100%', padding:'10px', background:'#007aff', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', marginTop:'5px'}}>点击复制全部</button></div>}
+              {mdLinks && <div style={{marginTop:'15px'}}><pre style={{background:'#000', padding:'10px', color:'#007aff', fontSize:'11px', whiteSpace:'pre-wrap'}}>{mdLinks}</pre><button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={{width:'100%', padding:'10px', background:'#007aff', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', marginTop:'10px'}}>复制全部结果</button></div>}
             </div>
 
             <div style={{background:'#202024', padding:'10px', border:'1px solid #333', borderBottom:'none', borderRadius:'12px 12px 0 0', display:'flex', gap:'10px'}}>
@@ -138,7 +135,7 @@ export default function Home() {
                 <button className="toolbar-btn" onClick={()=>insertText('[', '](url)')}>Link</button>
                 <button className="toolbar-btn" style={{background:'#007aff', color:'#fff', border:'none'}} onClick={()=>insertText(':::lock 123\n', '\n:::')}>🔒 插入加密块</button>
             </div>
-            <textarea ref={textAreaRef} style={{height:'500px', borderRadius:'0 0 12px 12px', fontSize:'16px', lineHeight:'1.6'}} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="直接在此写作..." />
+            <textarea ref={textAreaRef} style={{height:'500px', borderRadius:'0 0 12px 12px', fontSize:'16px', lineHeight:'1.6'}} value={form.content} onChange={e => setForm({...form, content: e.target.value})} />
 
             <button onClick={() => { setLoading(true); fetch('/api/post', { method: 'POST', body: JSON.stringify({ ...form, id: currentId }) }).then(() => { setView('list'); fetchPosts(); }) }} disabled={loading || !isFormValid} style={{width:'100%', padding:'20px', background: !isFormValid ? '#333' : '#fff', color:'#000', border:'none', borderRadius:'12px', fontWeight:'bold', fontSize:'16px', marginTop:'40px', cursor: isFormValid ? 'pointer' : 'not-allowed', opacity: isFormValid ? 1 : 0.5}}>
                 {loading ? '⚡ 同步中...' : '🚀 确认发布 / 覆盖更新'}
