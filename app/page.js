@@ -9,10 +9,20 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('Post');
 
-  const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' });
+  // 表单状态
+  const [form, setForm] = useState({ 
+    title: '', slug: '', excerpt: '', content: '', 
+    category: '', tags: '', cover: '', status: 'Published', 
+    type: 'Post', date: '' 
+  });
   const [currentId, setCurrentId] = useState(null);
+
+  // 快捷工具状态
   const [rawLinks, setRawLinks] = useState('');
   const [mdLinks, setMdLinks] = useState('');
+
+  // 🟢 自动校验逻辑：检查 标题、分类、日期 是否都有值
+  const isFormValid = form.title.trim() !== '' && form.category.trim() !== '' && form.date !== '';
 
   const LSKY_URL = "https://x1file.top/dashboard"; 
   const CLOUDREVE_URL = "https://x1file.top/home"; 
@@ -30,9 +40,10 @@ export default function Home() {
       .row-container:hover .delete-drawer { width: 100px; }
       .tag-chip { background: #2d2d32; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #a1a1a6; margin-right: 5px; cursor: pointer; transition: 0.2s; }
       .tag-chip:hover { background: #3e3e42; color: #fff; }
-      .btn-click:active { transform: scale(0.97); }
+      .btn-click:active:not(:disabled) { transform: scale(0.97); }
       input, select, textarea { transition: border 0.2s; outline: none; }
       input:focus, textarea:focus { border-color: #007aff !important; }
+      .required-mark { color: #ff4d4f; margin-left: 4px; }
     `;
   }, []);
 
@@ -67,7 +78,7 @@ export default function Home() {
   };
 
   const handleSave = async () => {
-    if (!form.title) return alert('标题必填');
+    if (!isFormValid) return;
     setLoading(true);
     const res = await fetch('/api/post', {
       method: 'POST',
@@ -100,24 +111,25 @@ export default function Home() {
           <main>
             <div style={css.listHeader}>
                 <div style={css.tabs}>
-                    {/* 🟢 移除了 Page 选项 */}
                     {['Post', 'Widget'].map(t => (
                         <button key={t} onClick={() => setActiveTab(t)} style={activeTab === t ? css.tabActive : css.tab}>{t}</button>
                     ))}
                 </div>
                 <button onClick={() => { 
-                    setForm({title:'', slug: generateAutoSlug(), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: activeTab, date: new Date().toISOString().split('T')[0]}); 
+                    setForm({title:'', slug: generateAutoSlug(), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: 'Post', date: new Date().toISOString().split('T')[0]}); 
                     setCurrentId(null); setView('edit'); 
-                }} className="btn-click" style={css.btnNew}>新建{activeTab}</button>
+                }} className="btn-click" style={css.btnNew}>新建文章</button>
             </div>
 
             <div style={css.listBody}>
-              {loading && <div style={{padding:'40px', textAlign:'center', color:'#666'}}>载入中...</div>}
+              {loading && <div style={{padding:'40px', textAlign:'center', color:'#666'}}>载入云端数据中...</div>}
               {!loading && posts.filter(p => p.type === activeTab).map(p => (
                 <div key={p.id} onClick={() => handleEdit(p)} className="row-container">
                   <div className="row-content">
-                    <div style={css.rowTitle}>{p.title}</div>
-                    <div style={css.rowMeta}>{p.category} · {p.date || '无日期'}</div>
+                    <div style={css.rowMain}>
+                        <div style={css.rowTitle}>{p.title}</div>
+                        <div style={css.rowMeta}>{p.category} · {p.date || '无日期'}</div>
+                    </div>
                   </div>
                   <div onClick={(e) => handleDelete(e, p.id)} className="delete-drawer">删除</div>
                 </div>
@@ -126,41 +138,43 @@ export default function Home() {
           </main>
         ) : (
           <main style={css.formPanel}>
-            <div style={{marginBottom:'20px'}}><label style={css.label}>标题</label><input style={css.input} value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="输入标题..." /></div>
-            
+            <div style={{marginBottom:'20px'}}>
+                <label style={css.label}>文章标题<span className="required-mark">*</span></label>
+                <input style={css.input} value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="输入文章标题..." />
+            </div>
+
             <div style={css.grid3}>
               <div>
-                <label style={css.label}>分类</label>
+                <label style={css.label}>分类<span className="required-mark">*</span></label>
                 <input list="notion-cats" autoComplete="off" style={css.input} value={form.category} onChange={e => setForm({...form, category: e.target.value})} placeholder="选择或输入" />
                 <datalist id="notion-cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist>
               </div>
-              <div><label style={css.label}>日期</label><input type="date" style={css.input} value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
-              <div><label style={css.label}>内容类型</label>
-                <select style={css.input} value={form.type} onChange={e => setForm({...form, type: e.target.value})}>
-                  <option value="Post">Post</option><option value="Widget">Widget</option>
+              <div>
+                <label style={css.label}>发布日期<span className="required-mark">*</span></label>
+                <input type="date" style={css.input} value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+              </div>
+              <div>
+                <label style={css.label}>发布状态</label>
+                <select style={css.input} value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
+                  <option value="Published">立即公开</option>
+                  <option value="Hidden">草稿隐藏</option>
                 </select>
               </div>
             </div>
 
             <label style={css.label}>标签 (点击快捷添加)</label>
             <div style={{marginBottom:'20px'}}>
-                <input style={{...css.input, marginBottom:'8px'}} value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} placeholder="用逗号隔开..." />
+                <input style={{...css.input, marginBottom:'8px'}} value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} placeholder="标签1,标签2..." />
                 <div style={{display:'flex', gap:'5px', flexWrap:'wrap'}}>{options.tags.map(t => (<span key={t} className="tag-chip" onClick={() => { const current = form.tags.split(',').map(x => x.trim()).filter(Boolean); if(!current.includes(t)) setForm({...form, tags: [...current, t].join(',')}) }}>{t}</span>))}</div>
             </div>
 
-            <div style={css.grid2}>
-                <div><label style={css.label}>封面图 URL</label><input style={css.input} value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} /></div>
-                <div><label style={css.label}>状态</label>
-                  <select style={css.input} value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
-                    <option value="Published">公开</option><option value="Hidden">隐藏</option>
-                  </select>
-                </div>
-            </div>
-
-            <label style={css.label}>摘要</label><input style={css.input} value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} />
+            <div style={{marginBottom:'20px'}}><label style={css.label}>封面图 URL (COVER)</label><input style={css.input} value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} placeholder="https://..." /></div>
+            
+            <label style={css.label}>文章摘要 (EXCERPT)</label>
+            <input style={css.input} value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} />
 
             <div style={css.toolBox}>
-              <div style={{display:'flex', gap:'10px', marginBottom:'12px'}}><button onClick={() => window.open(LSKY_URL)} style={css.toolBtn}>🖼️ 图床</button><button onClick={() => window.open(CLOUDREVE_URL)} style={css.toolBtn}>🎬 网盘</button></div>
+              <div style={{display:'flex', gap:'10px', marginBottom:'12px'}}><button onClick={() => window.open(LSKY_URL)} style={css.toolBtn}>🖼️ 打开图床</button><button onClick={() => window.open(CLOUDREVE_URL)} style={css.toolBtn}>🎬 打开网盘</button></div>
               <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
                 <div style={{fontSize:'11px', color:'#9ea0a5', fontWeight:'bold'}}>批量转 MD</div>
                 <div style={{display:'flex', gap:'10px'}}><textarea style={{...css.toolInput, height: Math.max(45, rawLinks.split('\n').length * 20) + 'px'}} placeholder="粘贴直链..." value={rawLinks} onChange={e => setRawLinks(e.target.value)} /><button onClick={convertBatchLinks} style={css.toolAction}>转换</button></div>
@@ -168,8 +182,17 @@ export default function Home() {
               {mdLinks && <div style={{marginTop:'12px', padding:'12px', background:'#18181c', borderRadius:'8px', border:'1px solid #38444d'}}><pre style={{margin:0, fontSize:'11px', color:'#007aff', whiteSpace:'pre-wrap'}}>{mdLinks}</pre><button onClick={() => {navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={{...css.miniBtn, marginTop:'10px', width:'100%'}}>点击复制全部</button></div>}
             </div>
 
-            <label style={css.label}>正文</label><textarea style={css.textarea} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="Markdown..." />
-            <button onClick={handleSave} disabled={loading} className="btn-click" style={css.btnSave}>{loading ? '⚡ 同步中...' : '🚀 确认发布 / 更新'}</button>
+            <label style={css.label}>正文内容 (MARKDOWN)</label>
+            <textarea style={css.textarea} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="在这里开始你的创作..." />
+            
+            <button 
+              onClick={handleSave} 
+              disabled={loading || !isFormValid} 
+              className="btn-click" 
+              style={(!isFormValid || loading) ? css.btnDisabled : css.btnSave}
+            >
+                {loading ? '⚡ 正在努力同步至云端...' : isFormValid ? '🚀 确认发布 / 覆盖更新' : '⚠️ 请填写必填项以激活发布'}
+            </button>
           </main>
         )}
       </div>
@@ -194,13 +217,13 @@ const css = {
   formPanel: { background: '#202024', padding: '30px', borderRadius: '20px', border: '1px solid #2d2d30' },
   label: { display: 'block', fontSize: '10px', color: '#666', marginBottom: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing:'1.5px' },
   input: { width: '100%', padding: '14px', background: '#18181c', border: '1px solid #333', borderRadius: '10px', color: '#fff', marginBottom: '20px', boxSizing: 'border-box', outline: 'none', fontSize:'15px' },
-  grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' },
-  grid3: { display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '20px' },
+  grid3: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' },
   textarea: { width: '100%', height: '500px', background: '#18181c', border: '1px solid #333', borderRadius: '10px', color: '#fff', padding: '15px', fontFamily: 'monospace', lineHeight: '1.6', boxSizing: 'border-box', fontSize:'16px' },
   toolBox: { background: '#2d2d32', padding: '20px', borderRadius: '16px', marginBottom: '30px', border: '1px solid #38383d' },
   toolBtn: { padding: '10px 15px', background: '#3e3e42', border: 'none', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' },
   toolInput: { flex: 1, padding: '12px', background: '#18181c', border: '1px solid #3e3e42', color: '#fff', borderRadius: '8px', fontSize: '13px', resize: 'none' },
   toolAction: { padding: '0 20px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight:'bold' },
   miniBtn: { padding: '8px', background: '#333', color: '#007aff', border: '1px solid #007aff', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight:'bold' },
-  btnSave: { width: '100%', padding: '20px', background: '#fff', color: '#000', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '30px' }
+  btnSave: { width: '100%', padding: '20px', background: '#fff', color: '#000', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '30px', transition: 'all 0.3s' },
+  btnDisabled: { width: '100%', padding: '20px', background: '#333', color: '#666', border: 'none', borderRadius: '12px', cursor: 'not-allowed', fontWeight: 'bold', fontSize: '16px', marginTop: '30px', opacity: 0.6 }
 };
