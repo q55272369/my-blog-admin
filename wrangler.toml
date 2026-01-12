@@ -2,3 +2,10 @@ name = "my-blog-admin"
 pages_build_output_dir = ".vercel/output/static"
 compatibility_date = "2024-11-01"
 compatibility_flags = [ "nodejs_compat" ]
+
+[vars]
+AUTH_USER = "admin"
+AUTH_PASS = "123456."
+NOTION_DATABASE_ID = "2356472776a8809baab8ee574ec00f42"
+NOTION_API_KEY = "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"
+NODE_VERSION = "20"
