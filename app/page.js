@@ -9,12 +9,14 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('Post');
 
-  const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' });
+  const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', date: '' });
   const [currentId, setCurrentId] = useState(null);
   const [rawLinks, setRawLinks] = useState('');
+  const [mdLinks, setMdLinks] = useState('');
 
-  const editorRef = useRef(null); // 🟢 指向富文本区域
+  const textAreaRef = useRef(null);
 
+  // 🔴 必填校验逻辑
   const isFormValid = form.title.trim() !== '' && form.category.trim() !== '' && form.date !== '';
 
   const LSKY_URL = "https://x1file.top/dashboard"; 
@@ -27,16 +29,15 @@ export default function Home() {
     style.innerHTML = `
       body { background-color: #121212; color: #e1e1e3; margin: 0; font-family: system-ui; }
       .list-card { background: #18181c; border: 1px solid #2d2d30; border-radius: 12px; padding: 20px; margin-bottom: 12px; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; }
-      .list-card:hover { border-color: #007aff; background: #202024; transform: translateY(-2px); }
-      .delete-btn { position: absolute; right: -80px; top: 0; bottom: 0; width: 80px; background: #ff4d4f; color: #fff; display: flex; align-items: center; justify-content: center; transition: 0.3s; font-weight: bold; font-size: 14px; }
+      .list-card:hover { border-color: #007aff; transform: translateY(-2px); background: #202024; }
+      .delete-btn { position: absolute; right: -80px; top: 0; bottom: 0; width: 80px; background: #ff4d4f; color: #fff; display: flex; align-items: center; justify-content: center; transition: 0.3s; font-weight: bold; }
       .list-card:hover .delete-btn { right: 0; }
-      .rich-editor { width: 100%; min-height: 400px; background: #18181c; border: 1px solid #333; border-radius: 0 0 12px 12px; color: #fff; padding: 20px; outline: none; font-size: 16px; line-height: 1.6; }
-      .rich-editor:focus { border-color: #007aff; }
-      .toolbar { background: #202024; padding: 10px; border: 1px solid #333; border-bottom: none; border-radius: 12px 12px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
-      .t-btn { background: #2d2d32; color: #fff; border: 1px solid #444; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; }
-      .t-btn:hover { background: #3d3d42; }
-      .required-star { color: #ff4d4f; margin-left: 4px; }
-      .input-field { width: 100%; padding: 12px; background: #18181c; border: 1px solid #333; border-radius: 8px; color: #fff; box-sizing: border-box; font-size: 15px; margin-bottom: 20px; }
+      .tag-chip { background: #2d2d32; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #888; margin: 0 5px 5px 0; cursor: pointer; }
+      .tag-chip:hover { color: #fff; background: #3e3e42; }
+      .toolbar-btn { background: #2d2d32; color: #fff; border: 1px solid #444; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; }
+      .required-star { color: #ff4d4f; margin-left: 4px; font-weight: bold; }
+      input, select, textarea { width: 100%; padding: 14px; background: #18181c; border: 1px solid #333; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 15px; outline: none; }
+      input:focus, textarea:focus { border-color: #007aff; }
     `;
   }, []);
 
@@ -49,32 +50,40 @@ export default function Home() {
     } finally { setLoading(false); }
   }
 
-  // 🟢 富文本命令执行
-  const exec = (cmd, val = null) => {
-    document.execCommand(cmd, false, val);
-    if (editorRef.current) setForm({ ...form, content: editorRef.current.innerHTML });
+  const insertText = (before, after = '') => {
+    const el = textAreaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const val = el.value;
+    const newText = val.substring(0, start) + before + val.substring(start, end) + after + val.substring(end);
+    setForm({ ...form, content: newText });
+    setTimeout(() => { el.focus(); el.setSelectionRange(start + before.length, end + before.length); }, 10);
+  };
+
+  const convertLinks = () => {
+    if(!rawLinks.trim()) return;
+    const converted = rawLinks.split('\n').filter(l => l.trim()).map(url => {
+        const fn = url.trim().split('/').pop() || 'image';
+        return `![${fn}](${url.trim()})`;
+    }).join('\n\n'); // 🟢 垂直换行，不挤在一坨
+    setMdLinks(converted);
   };
 
   const handleEdit = (post) => {
     setLoading(true);
     fetch(`/api/post?id=${post.id}`).then(res => res.json()).then(data => {
-      if (data.success) {
-        setForm(data.data);
-        setCurrentId(post.id);
-        setView('edit');
-        setTimeout(() => { if(editorRef.current) editorRef.current.innerHTML = data.data.content; }, 100);
-      }
+      if (data.success) { setForm(data.data); setCurrentId(post.id); setView('edit'); }
     }).finally(() => setLoading(false));
   };
 
   const handleSave = async () => {
     if (!isFormValid) return;
-    const finalForm = { ...form, content: editorRef.current.innerHTML };
     setLoading(true);
     const res = await fetch('/api/post', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...finalForm, id: currentId }),
+      body: JSON.stringify({ ...form, id: currentId }),
     });
     if ((await res.json()).success) { setView('list'); fetchPosts(); }
     else { alert('保存失败'); setLoading(false); }
@@ -98,7 +107,7 @@ export default function Home() {
                   <button key={t} onClick={() => setActiveTab(t)} style={{ padding: '8px 24px', border: 'none', background: activeTab === t ? '#333' : 'none', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{t}</button>
                 ))}
               </div>
-              <button onClick={() => { setForm({ title: '', slug: 'p-' + Date.now().toString(36), excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: new Date().toISOString().split('T')[0] }); setCurrentId(null); setView('edit'); }} style={{ padding: '10px 25px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>发布新内容</button>
+              <button onClick={() => { setForm({ title: '', slug: 'p-' + Date.now().toString(36), excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', date: new Date().toISOString().split('T')[0] }); setCurrentId(null); setView('edit'); }} style={{ padding: '10px 25px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>发布新文章</button>
             </div>
             {posts.filter(p => p.type === activeTab).map(p => (
               <div key={p.id} onClick={() => handleEdit(p)} className="list-card">
@@ -110,63 +119,37 @@ export default function Home() {
           </main>
         ) : (
           <main>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#666' }}>标题<span className="required-star">*</span></label>
-              <input className="input-field" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="输入文章标题..." />
+            {/* 垂直化的表单 */}
+            <div style={{marginBottom:'20px'}}><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>标题 <span className="required-star">*</span></label><input value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="输入标题..." /></div>
+            
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'20px'}}>
+                <div><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>分类 <span className="required-star">*</span></label><input list="cats" value={form.category} onChange={e => setForm({...form, category: e.target.value})} placeholder="选择或输入..." /><datalist id="cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist></div>
+                <div><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>发布日期 <span className="required-star">*</span></label><input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
-              <div><label style={{ fontSize: '11px', fontWeight: 'bold', color: '#666' }}>分类<span className="required-star">*</span></label>
-                <input list="cats" className="input-field" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} /><datalist id="cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist>
-              </div>
-              <div><label style={{ fontSize: '11px', fontWeight: 'bold', color: '#666' }}>日期<span className="required-star">*</span></label><input type="date" className="input-field" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></div>
-              <div><label style={{ fontSize: '11px', fontWeight: 'bold', color: '#666' }}>状态</label><select className="input-field" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="Published">公开</option><option value="Hidden">隐藏</option></select></div>
+            <div style={{marginBottom:'20px'}}><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>标签 (已有：点下方添加)</label><input value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} placeholder="逗号隔开..." /><div style={{marginTop:'8px', display:'flex', flexWrap:'wrap'}}>{options.tags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}</span>)}</div></div>
+            <div style={{marginBottom:'20px'}}><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>封面图 (COVER URL)</label><input value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} placeholder="https://..." /></div>
+            <div style={{marginBottom:'30px'}}><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>摘要 (EXCERPT)</label><input value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} /></div>
+
+            {/* 素材与转换工具 */}
+            <div style={{background:'#18181c', padding:'20px', borderRadius:'12px', border:'1px solid #333', marginBottom:'30px'}}>
+              <div style={{display:'flex', gap:'10px', marginBottom:'15px'}}><button onClick={() => window.open(LSKY_URL)} className="toolbar-btn" style={{flex:1}}>🖼️ 打开图床</button><button onClick={() => window.open(CLOUDREVE_URL)} className="toolbar-btn" style={{flex:1}}>🎬 打开网盘</button></div>
+              <textarea style={{height:'60px', fontSize:'12px', background:'#121212', border:'1px solid #444'}} placeholder="在此粘贴一个或多个直链..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} />
+              <button onClick={convertLinks} style={{width:'100%', padding:'10px', background:'#333', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', marginTop:'10px', fontWeight:'bold'}}>转换 Markdown</button>
+              {mdLinks && <div style={{marginTop:'15px'}}><pre style={{background:'#000', padding:'10px', color:'#007aff', fontSize:'11px', whiteSpace:'pre-wrap'}}>{mdLinks}</pre><button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={{width:'100%', padding:'8px', background:'#007aff', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', marginTop:'5px'}}>点击复制全部</button></div>}
             </div>
 
-            <div style={{ marginBottom: '20px' }}><label style={{ fontSize: '11px', fontWeight: 'bold', color: '#666' }}>标签</label><input className="input-field" value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="逗号隔开..." /></div>
-            <div style={{ marginBottom: '20px' }}><label style={{ fontSize: '11px', fontWeight: 'bold', color: '#666' }}>封面图 URL</label><input className="input-field" value={form.cover} onChange={e => setForm({ ...form, cover: e.target.value })} /></div>
-            <div style={{ marginBottom: '30px' }}><label style={{ fontSize: '11px', fontWeight: 'bold', color: '#666' }}>摘要</label><input className="input-field" value={form.excerpt} onChange={e => setForm({ ...form, excerpt: e.target.value })} /></div>
-
-            {/* 素材助手 */}
-            <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
-              <button onClick={() => window.open(LSKY_URL)} style={{ flex:1, padding: '12px', background: '#2d2d32', color: '#fff', border: '1px solid #444', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>🖼️ 打开图床</button>
-              <button onClick={() => window.open(CLOUDREVE_URL)} style={{ flex:1, padding: '12px', background: '#2d2d32', color: '#fff', border: '1px solid #444', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>🎬 打开网盘</button>
+            {/* 编辑器工具栏 */}
+            <div style={{background:'#202024', padding:'10px', border:'1px solid #333', borderBottom:'none', borderRadius:'12px 12px 0 0', display:'flex', gap:'10px'}}>
+                <button className="toolbar-btn" onClick={()=>insertText('# ', '')}>H1</button>
+                <button className="toolbar-btn" onClick={()=>insertText('**', '**')}>B</button>
+                <button className="toolbar-btn" onClick={()=>insertText('[', '](url)')}>Link</button>
             </div>
+            <textarea ref={textAreaRef} style={{height:'500px', borderRadius:'0 0 12px 12px', fontSize:'16px', lineHeight:'1.6'}} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="在这里开始创作..." />
 
-            {/* 批量链接转换器 */}
-            <div style={{ background: '#18181c', padding: '15px', borderRadius: '12px', border: '1px solid #333', marginBottom: '30px' }}>
-               <textarea style={{ width:'100%', background:'transparent', border:'none', color:'#888', fontSize:'12px', resize:'none', outline:'none' }} placeholder="在这里粘贴图片直链，点转换即刻插入编辑器..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} />
-               <button onClick={() => {
-                 const md = rawLinks.split('\n').filter(l=>l.trim()).map(u=>`<img src="${u.trim()}" />`).join('');
-                 if(editorRef.current) editorRef.current.innerHTML += md;
-                 setRawLinks('');
-               }} style={{ width:'100%', padding:'8px', background:'#333', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', marginTop:'10px', fontSize:'12px' }}>✨ 转换并直接插入正文</button>
-            </div>
-
-            {/* 🟢 富文本编辑器 */}
-            <div className="toolbar">
-              <button className="t-btn" onClick={() => exec('formatBlock', 'h1')}>H1</button>
-              <button className="t-btn" onClick={() => exec('bold')}>B</button>
-              <button className="t-btn" onClick={() => { const url = prompt('输入链接:'); if(url) exec('createLink', url); }}>Link</button>
-              <button className="t-btn" style={{color:'red'}} onClick={() => exec('foreColor', 'red')}>Red</button>
-              <button className="t-btn" style={{color:'blue'}} onClick={() => exec('foreColor', 'blue')}>Blue</button>
-              <button className="t-btn" style={{color:'green'}} onClick={() => exec('foreColor', 'green')}>Green</button>
-              <button className="t-btn" style={{color:'#fff'}} onClick={() => exec('foreColor', '#fff')}>White</button>
-            </div>
-            <div 
-              ref={editorRef}
-              className="rich-editor"
-              contentEditable 
-              onBlur={() => setForm({ ...form, content: editorRef.current.innerHTML })}
-              dangerouslySetInnerHTML={{ __html: '' }}
-            />
-
-            <button 
-              onClick={handleSave} 
-              disabled={loading || !isFormValid} 
-              style={{ width: '100%', padding: '20px', background: !isFormValid ? '#333' : '#fff', color: '#000', border: 'none', borderRadius: '12px', cursor: isFormValid ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '16px', marginTop: '40px', opacity: isFormValid ? 1 : 0.5 }}
-            >
-              {loading ? '⚡ 同步至云端...' : '🚀 确认发布更新'}
+            {/* 发布按钮 */}
+            <button onClick={handleSave} disabled={loading || !isFormValid} style={{width:'100%', padding:'20px', background: !isFormValid ? '#333' : '#fff', color:'#000', border:'none', borderRadius:'12px', fontWeight:'bold', fontSize:'16px', marginTop:'40px', cursor: isFormValid ? 'pointer' : 'not-allowed', opacity: isFormValid ? 1 : 0.5}}>
+                {loading ? '⚡ 正在努力同步至 Notion...' : '🚀 确认发布 / 覆盖更新'}
             </button>
           </main>
         )}
