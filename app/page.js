@@ -13,7 +13,6 @@ export default function Home() {
   const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', date: '' });
   const [currentId, setCurrentId] = useState(null);
   
-  // 🟢 升级：多行直链/杂乱内容处理状态
   const [rawLinks, setRawLinks] = useState('');
   const [mdLinks, setMdLinks] = useState('');
 
@@ -56,23 +55,16 @@ export default function Home() {
     } finally { setLoading(false); }
   }
 
-  // 🟢 智能清洗引擎：针对 Cloudreve 杂乱内容进行提取并转为垂直 MD
   const cleanAndConvertLinks = () => {
     if(!rawLinks.trim()) return;
     const lines = rawLinks.split('\n');
     const finalOutput = [];
     for(let i=0; i<lines.length; i++) {
-        // 使用正则精准匹配链接部分
         const m = lines[i].match(/https?:\/\/[^\s]+/);
-        if(m) {
-            finalOutput.push(`![](${m[0]})`);
-        }
+        if(m) finalOutput.push(`![](${m[0]})`);
     }
-    if (finalOutput.length > 0) {
-        setMdLinks(finalOutput.join('\n\n'));
-    } else {
-        alert('未在内容中找到有效链接');
-    }
+    if (finalOutput.length > 0) setMdLinks(finalOutput.join('\n\n'));
+    else alert('未找到有效链接');
   };
 
   const insertText = (before, after = '') => {
@@ -115,7 +107,7 @@ export default function Home() {
               </div>
               <button onClick={() => { setForm({ title: '', slug: 'p-' + Date.now().toString(36), excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', date: new Date().toISOString().split('T')[0] }); setCurrentId(null); setView('edit'); }} style={{ padding: '10px 25px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>发布新内容</button>
             </div>
-            <input className="search-bar" placeholder={`在 ${activeTab} 中搜索...`} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            <input className="search-bar" placeholder={`在 ${activeTab} 中搜索标题或 Slug...`} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
             {!loading && filteredPosts.map(p => (
               <div key={p.id} onClick={() => handleEdit(p)} className="list-card">
                 <div className="card-cover">
@@ -131,52 +123,11 @@ export default function Home() {
           </main>
         ) : (
           <main>
-            <div style={{marginBottom:'20px'}}><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>标题 <span className="required-star">*</span></label><input value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
+            <div style={{marginBottom:'20px'}}><label style={css.label}>标题 <span className="required-star">*</span></label><input value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="输入标题..." /></div>
             
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'20px'}}>
-                <div><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>分类 <span className="required-star">*</span></label><input list="cats" autoComplete="off" value={form.category} onChange={e => setForm({...form, category: e.target.value})} /><datalist id="cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist></div>
-                <div><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>发布日期 <span className="required-star">*</span></label><input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
+                <div><label style={css.label}>分类 <span className="required-star">*</span></label><input list="cats" autoComplete="off" value={form.category} onChange={e => setForm({...form, category: e.target.value})} /><datalist id="cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist></div>
+                <div><label style={css.label}>发布日期 <span className="required-star">*</span></label><input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
             </div>
 
-            <div style={{marginBottom:'20px'}}><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>标签 (点选快捷添加)</label><input value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} /><div style={{marginTop:'8px', display:'flex', flexWrap:'wrap'}}>{options.tags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}</span>)}</div></div>
-            <div style={{marginBottom:'20px'}}><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>封面图 URL</label><input value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} /></div>
-            <div style={{marginBottom:'30px'}}><label style={{fontSize:'11px', color:'#666', fontWeight:'bold'}}>摘要 (EXCERPT)</label><input value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} /></div>
-
-            {/* 🟢 强化：Cloudreve 专用素材转换器 */}
-            <div style={{background:'#18181c', padding:'20px', borderRadius:'12px', border:'1px solid #333', marginBottom:'30px'}}>
-              <div style={{display:'flex', gap:'10px', marginBottom:'15px'}}>
-                <button onClick={() => window.open(LSKY_URL)} className="toolbar-btn" style={{flex:1}}>🖼️ 打开图床</button>
-                <button onClick={() => window.open(CLOUDREVE_URL)} className="toolbar-btn" style={{flex:1}}>🎬 打开网盘</button>
-              </div>
-              <div style={{fontSize:'11px', color:'#666', fontWeight:'bold', marginBottom:'8px'}}>素材清洗区 (支持 Cloudreve 批量外链格式)</div>
-              <textarea style={{height:'80px', fontSize:'12px', background:'#121212', border:'1px solid #444'}} placeholder="直接粘贴那一坨混合了文件名和链接的内容到这里..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} />
-              <button onClick={cleanAndConvertLinks} style={{width:'100%', padding:'10px', background:'#007aff', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', marginTop:'10px', fontWeight:'bold'}}>✨ 智能清洗并生成 Markdown</button>
-              
-              {mdLinks && (
-                <div style={{marginTop:'15px'}}>
-                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'5px'}}>
-                    <span style={{fontSize:'11px', color:'#007aff'}}>清洗结果 (已垂直化):</span>
-                    <button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已全部复制')}} style={{background:'#333', color:'#fff', border:'none', padding:'4px 10px', borderRadius:'4px', cursor:'pointer', fontSize:'11px'}}>复制全部</button>
-                  </div>
-                  <pre style={{background:'#000', padding:'10px', color:'#888', fontSize:'11px', whiteSpace:'pre-wrap', maxHeight:'150px', overflowY:'auto', border:'1px solid #222'}}>{mdLinks}</pre>
-                </div>
-              )}
-            </div>
-
-            <div style={{background:'#202024', padding:'10px', border:'1px solid #333', borderBottom:'none', borderRadius:'12px 12px 0 0', display:'flex', gap:'10px'}}>
-                <button className="toolbar-btn" onClick={()=>insertText('# ', '')}>H1</button>
-                <button className="toolbar-btn" onClick={()=>insertText('**', '**')}>B</button>
-                <button className="toolbar-btn" onClick={()=>insertText('[', '](url)')}>Link</button>
-                <button className="toolbar-btn" style={{background:'#333', color:'#007aff', borderColor:'#007aff'}} onClick={()=>insertText(':::lock 123\n', '\n:::')}>🔒 插入加密块</button>
-            </div>
-            <textarea ref={textAreaRef} style={{height:'500px', borderRadius:'0 0 12px 12px', fontSize:'16px', lineHeight:'1.6'}} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="在这里开始创作..." />
-
-            <button onClick={() => { setLoading(true); fetch('/api/post', { method: 'POST', body: JSON.stringify({ ...form, id: currentId }) }).then(() => { setView('list'); fetchPosts(); }) }} disabled={loading || !isFormValid} style={{width:'100%', padding:'20px', background: !isFormValid ? '#333' : '#fff', color:'#000', border:'none', borderRadius:'12px', fontWeight:'bold', fontSize:'16px', marginTop:'40px', cursor: isFormValid ? 'pointer' : 'not-allowed', opacity: isFormValid ? 1 : 0.5}}>
-                {loading ? '⚡ 正在努力同步至全球边缘节点...' : '🚀 确认发布 / 覆盖更新'}
-            </button>
-          </main>
-        )}
-      </div>
-    </div>
-  );
-}
+            <div style={{marginBottom:'20px'}}><label style={css.label}>标签 (点选快捷添加)</label><input valu
