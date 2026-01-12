@@ -15,22 +15,22 @@ export async function GET() {
 
     const posts = response.results.map(page => {
       const p = page.properties;
-      // 这里的逻辑要极其健壮
+      // 1. 提取标题 (兼容 title 或 Name)
       const title = p.title?.title?.[0]?.plain_text || p.Name?.title?.[0]?.plain_text || "无标题";
-      const type = p.type?.select?.name || "未分类";
       
-      // 只有当有标题或者是有效条目时才返回
-      if (title === "无标题" && !p.type?.select) return null;
+      // 2. 提取类型 (Page, Post, Widget)
+      const type = p.type?.select?.name || "Other"; 
 
+      // 3. 提取其他展示属性
       return {
         id: page.id,
         title,
         type,
-        status: p.status?.status?.name || 'Draft',
-        category: p.category?.select?.name || '',
-        date: p.date?.date?.start || ''
+        status: p.status?.status?.name || 'No Status',
+        category: p.category?.select?.name || '未分类',
+        updateDate: p.update_date?.date?.start || '无时间'
       };
-    }).filter(Boolean);
+    });
 
     return NextResponse.json({ success: true, posts });
   } catch (error) {
