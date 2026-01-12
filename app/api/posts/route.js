@@ -10,7 +10,6 @@ export async function GET() {
   try {
     const response = await notion.databases.query({
       database_id: dbId,
-      // 🟢 关键：增加过滤器，只允许 Post 和 Widget 通过
       filter: {
         or: [
           { property: "type", select: { equals: "Post" } },
@@ -26,14 +25,15 @@ export async function GET() {
 
     const posts = response.results.map(page => {
       const p = page.properties;
-      const title = p.title?.title?.[0]?.plain_text || "无标题";
       return {
         id: page.id,
-        title,
+        title: p.title?.title?.[0]?.plain_text || "无标题",
         type: p.type?.select?.name || "Post",
         slug: p.slug?.rich_text?.[0]?.plain_text || "",
         category: p.category?.select?.name || '未分类',
-        date: p.date?.date?.start || ''
+        date: p.date?.date?.start || '',
+        // 🟢 抓取封面图 URL (支持 URL 属性或 Files 属性)
+        cover: p.cover?.url || p.cover?.rich_text?.[0]?.plain_text || ""
       };
     });
 
