@@ -1,6 +1,6 @@
 import { Client } from '@notionhq/client';
 import { NotionToMarkdown } from 'notion-to-md';
-import { markdownToBlocks } from 'notion-markdown-to-blocks';
+import { mdToBlocks } from 'notion-md-to-blocks';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'edge';
@@ -46,8 +46,8 @@ export async function POST(request) {
     const { id, title, content, slug, excerpt } = body;
     const databaseId = process.env.NOTION_DATABASE_ID;
 
-    // 🟢 这里使用了新的转换库
-    const newBlocks = markdownToBlocks(content);
+    // 🟢 使用修正后的库进行转换
+    const newBlocks = mdToBlocks(content);
 
     const now = new Date().toISOString();
     const commonProperties = {
