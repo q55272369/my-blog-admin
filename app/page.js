@@ -5,10 +5,10 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState('list');
   const [posts, setPosts] = useState([]);
+  const [options, setOptions] = useState({ categories: [], tags: [] }); // 存储已有选项
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('Post');
 
-  // 表单状态增加了 date
   const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' });
   const [currentId, setCurrentId] = useState(null);
   const [rawLink, setRawLink] = useState('');
@@ -24,18 +24,12 @@ export default function Home() {
     try {
       const res = await fetch('/api/posts');
       const data = await res.json();
-      if (data.success) setPosts(data.posts || []);
+      if (data.success) {
+        setPosts(data.posts || []);
+        setOptions(data.options); // 存入已有分类和标签
+      }
     } finally { setLoading(false); }
   }
-
-  const handleDelete = async (id) => {
-    if (!confirm('确定归档吗？')) return;
-    setLoading(true);
-    try {
-      await fetch(`/api/post?id=${id}`, { method: 'DELETE' });
-      fetchPosts();
-    } finally { setLoading(false); }
-  };
 
   const handleEdit = async (post) => {
     setLoading(true);
@@ -51,7 +45,7 @@ export default function Home() {
   };
 
   const handleSave = async () => {
-    if (!form.title || !form.slug) return alert('标题和 Slug 必填！');
+    if (!form.title || !form.slug) return alert('标题和 Slug 必填');
     setLoading(true);
     try {
       const res = await fetch('/api/post', {
@@ -60,107 +54,147 @@ export default function Home() {
         body: JSON.stringify({ ...form, id: currentId }),
       });
       if ((await res.json()).success) {
-        alert('🎉 处理完成！并发删除已极大缩短了等待时间。');
+        alert('🎉 同步完成');
         setView('list');
         fetchPosts();
       }
     } finally { setLoading(false); }
   };
 
+  const handleDelete = async (e, id) => {
+    e.stopPropagation(); // 🟢 防止触发行的点击编辑事件
+    if (!confirm('确定归档吗？')) return;
+    setLoading(true);
+    await fetch(`/api/post?id=${id}`, { method: 'DELETE' });
+    fetchPosts();
+  };
+
   if (!mounted) return null;
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '30px 20px', fontFamily: 'system-ui, sans-serif' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 'bold' }}>Notion CMS {view === 'edit' ? ' (编辑器)' : ''}</h1>
-        {view === 'edit' && <button onClick={() => setView('list')} style={btnStyle}>🔙 返回列表</button>}
+    <div style={theme.container}>
+      <header style={theme.header}>
+        <h1 style={{fontSize:'20px', letterSpacing:'1px'}}>NOTION<span style={{color:'#f50057'}}>PRO</span> CMS</h1>
+        {view === 'edit' && <button onClick={() => setView('list')} style={theme.btnSecondary}>🔙 返回</button>}
       </header>
 
       {view === 'list' ? (
-        <div>
-          <button onClick={() => { setForm({title:'', slug:'', excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type:'Post', date: new Date().toISOString().split('T')[0]}); setCurrentId(null); setView('edit'); }} style={mainBtnStyle}>➕ 新建文章/页面</button>
+        <main>
+          <button onClick={() => { setForm({title:'', slug:'', excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type:'Post', date: new Date().toISOString().split('T')[0]}); setCurrentId(null); setView('edit'); }} style={theme.btnPrimary}>➕ 新建创作</button>
           
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+          <div style={theme.tabContainer}>
             {['Post', 'Page', 'Widget'].map(t => (
-              <button key={t} onClick={() => setActiveTab(t)} style={{ padding: '8px 20px', border: 'none', background: activeTab === t ? '#000' : '#eee', color: activeTab === t ? '#fff' : '#666', borderRadius: '20px', cursor: 'pointer' }}>{t}</button>
+              <button key={t} onClick={() => setActiveTab(t)} style={activeTab === t ? theme.tabActive : theme.tab}>{t}</button>
             ))}
           </div>
 
-          <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: '12px', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <tbody>
-                {posts.filter(p => p.type === activeTab).map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={tdStyle}><strong>{p.title}</strong><div style={{fontSize:'11px', color:'#999'}}>{p.date || '无日期'} | {p.category || '未分类'}</div></td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>
-                      <button onClick={() => handleEdit(p)} style={editBtnStyle}>编辑</button>
-                      <button onClick={() => handleDelete(p.id)} style={{...editBtnStyle, color:'red'}}>删除</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={theme.listCard}>
+            {posts.filter(p => p.type === activeTab).map(p => (
+              <div key={p.id} onClick={() => handleEdit(p)} style={theme.listRow}>
+                <div style={{flex: 1}}>
+                  <div style={theme.rowTitle}>{p.title}</div>
+                  <div style={theme.rowSlug}>/{p.slug || 'no-slug'} · {p.category}</div>
+                </div>
+                <div onClick={(e) => handleDelete(e, p.id)} style={theme.deleteZone}>🗑️</div>
+              </div>
+            ))}
           </div>
-        </div>
+        </main>
       ) : (
-        <div style={{ background: '#fff', padding: '25px', borderRadius: '12px', border: '1px solid #eee' }}>
-          
-          <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
-            <div style={{ flex: 3 }}><label style={labelStyle}>文章标题</label><input style={inputStyle} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
-            <div style={{ flex: 1 }}><label style={labelStyle}>发布日期</label><input type="date" style={inputStyle} value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></div>
+        <main style={theme.formCard}>
+          <div style={theme.grid2}>
+            <div><label style={theme.label}>文章标题</label><input style={theme.input} value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
+            <div><label style={theme.label}>发布日期</label><input type="date" style={theme.input} value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
           </div>
 
-          <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
-            <div style={{ flex: 1 }}><label style={labelStyle}>Slug (别名)</label><input style={inputStyle} value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value })} /></div>
-            <div style={{ flex: 1 }}><label style={labelStyle}>分类 (Select)</label><input style={inputStyle} placeholder="分类名" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} /></div>
-            <div style={{ flex: 1 }}><label style={labelStyle}>标签 (Multi-Select)</label><input style={inputStyle} placeholder="标签A,标签B" value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} /></div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
-            <div style={{ flex: 2 }}><label style={labelStyle}>封面图 URL</label><input style={inputStyle} value={form.cover} onChange={e => setForm({ ...form, cover: e.target.value })} /></div>
-            <div style={{ flex: 1 }}><label style={labelStyle}>类型</label>
-                <select style={inputStyle} value={form.type} onChange={e => setForm({...form, type: e.target.value})}>
-                    <option value="Post">Post</option><option value="Page">Page</option><option value="Widget">Widget</option>
-                </select>
+          <div style={theme.grid3}>
+            <div>
+              <label style={theme.label}>分类 (选择或输入)</label>
+              <input list="categories" style={theme.input} value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
+              <datalist id="categories">
+                {options.categories.map(c => <option key={c} value={c} />)}
+              </datalist>
             </div>
-            <div style={{ flex: 1 }}><label style={labelStyle}>状态</label>
-                <select style={inputStyle} value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
-                    <option value="Published">Published</option><option value="Hidden">Hidden</option>
-                </select>
+            <div>
+              <label style={theme.label}>标签 (逗号隔开)</label>
+              <input style={theme.input} placeholder="选择已有或输入..." value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} />
+              <div style={{marginTop:'5px', display:'flex', gap:'5px', flexWrap:'wrap'}}>
+                {options.tags.map(t => (
+                  <span key={t} onClick={() => { if(!form.tags.includes(t)) setForm({...form, tags: form.tags ? `${form.tags},${t}` : t}) }} style={theme.tagHint}>{t}</span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={theme.label}>类型</label>
+              <select style={theme.input} value={form.type} onChange={e => setForm({...form, type: e.target.value})}>
+                <option value="Post">Post</option><option value="Page">Page</option><option value="Widget">Widget</option>
+              </select>
             </div>
           </div>
 
-          <label style={labelStyle}>摘要 (Excerpt)</label>
-          <input style={{ ...inputStyle, marginBottom: '20px' }} value={form.excerpt} onChange={e => setForm({ ...form, excerpt: e.target.value })} />
-
-          {/* 🔗 MD 转换器小工具 */}
-          <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '10px', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                <button onClick={() => window.open(LSKY_URL)} style={toolBtn}>🖼️ 图床</button>
-                <button onClick={() => window.open(CLOUDREVE_URL)} style={toolBtn}>🎬 网盘</button>
-                <input style={{flex:1, padding:'8px', borderRadius:'4px', border:'1px solid #ddd', fontSize:'12px'}} placeholder="粘贴直链转换 ![]()" value={rawLink} onChange={e => setRawLink(e.target.value)} />
-                <button onClick={() => { const fn = rawLink.split('/').pop(); setMdLink(`![${fn}](${rawLink})`); }} style={{padding:'8px 15px', background:'#000', color:'#fff', borderRadius:'4px', border:'none', cursor:'pointer'}}>转换</button>
+          <div style={theme.grid2}>
+            <div><label style={theme.label}>Slug (别名)</label><input style={theme.input} value={form.slug} onChange={e => setForm({...form, slug: e.target.value})} /></div>
+            <div><label style={theme.label}>状态</label>
+              <select style={theme.input} value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
+                <option value="Published">Published</option><option value="Hidden">Hidden</option>
+              </select>
             </div>
-            {mdLink && <div style={{display:'flex', gap:'10px'}}><code style={{background:'#eee', padding:'5px', flex:1, fontSize:'11px'}}>{mdLink}</code><button onClick={() => { navigator.clipboard.writeText(mdLink); alert('已复制'); }} style={{fontSize:'12px'}}>复制</button></div>}
           </div>
 
-          <label style={labelStyle}>正文 (Markdown)</label>
-          <textarea style={{ ...inputStyle, height: '400px', fontFamily: 'monospace', marginTop: '10px' }} value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} />
+          <div><label style={theme.label}>封面 URL</label><input style={theme.input} value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} /></div>
+          <div><label style={theme.label}>摘要 (Excerpt)</label><input style={theme.input} value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} /></div>
 
-          <div style={{display:'flex', gap:'15px', marginTop:'20px'}}>
-              <button onClick={handleSave} disabled={loading} style={saveBtnStyle}>{loading ? '🚀 同步中 (多线程删除已开启)...' : '💾 确认保存并发布'}</button>
+          <div style={theme.toolBox}>
+            <button onClick={() => window.open(LSKY_URL)} style={theme.toolBtn}>🖼️ 图床</button>
+            <button onClick={() => window.open(CLOUDREVE_URL)} style={theme.toolBtn}>🎬 网盘</button>
+            <input style={theme.toolInput} placeholder="粘贴链接转换 Markdown" value={rawLink} onChange={e => setRawLink(e.target.value)} />
+            <button onClick={() => { const fn = rawLink.split('/').pop(); setMdLink(`![${fn}](${rawLink})`); }} style={theme.toolAction}>转换</button>
+            {mdLink && <span style={{fontSize:'12px', color:'#fff'}} onClick={() => {navigator.clipboard.writeText(mdLink); alert('已复制')}}>点击复制: <code>{mdLink}</code></span>}
           </div>
-        </div>
+
+          <textarea style={theme.textarea} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="在这里书写 Markdown..." />
+
+          <button onClick={handleSave} disabled={loading} style={theme.btnSave}>{loading ? '⚡ 正在安全同步至 Notion...' : '💾 确认发布 / 覆盖更新'}</button>
+        </main>
       )}
     </div>
   );
 }
 
-const labelStyle = { display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#888', marginBottom: '4px', textTransform:'uppercase' };
-const inputStyle = { width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ddd', boxSizing: 'border-box', fontSize: '14px' };
-const btnStyle = { padding: '8px 16px', borderRadius: '6px', border: '1px solid #ddd', cursor: 'pointer', background: '#fff' };
-const mainBtnStyle = { padding: '12px 24px', background: '#000', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', marginBottom: '20px', fontWeight: 'bold' };
-const editBtnStyle = { padding: '5px 10px', borderRadius: '4px', border: '1px solid #eee', cursor: 'pointer', background: '#f9f9f9', fontSize: '12px', marginLeft:'5px' };
-const toolBtn = { padding: '8px 12px', background: '#fff', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' };
-const saveBtnStyle = { flex:1, padding: '18px', background: '#000', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' };
-const tdStyle = { padding: '12px 15px', fontSize: '14px', textAlign: 'left' };
+// 🎨 暗黑优雅主题配置
+const theme = {
+  container: { maxWidth: '1000px', margin: '0 auto', padding: '40px 20px', background: '#121212', minHeight: '100vh', color: '#e0e0e0' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
+  tabContainer: { display: 'flex', gap: '5px', background: '#1e1e1e', padding: '5px', borderRadius: '10px', marginBottom: '20px' },
+  tab: { flex: 1, padding: '10px', background: 'transparent', border: 'none', color: '#888', cursor: 'pointer', borderRadius: '8px' },
+  tabActive: { flex: 1, padding: '10px', background: '#333', border: 'none', color: '#fff', cursor: 'pointer', borderRadius: '8px', fontWeight: 'bold' },
+  btnPrimary: { padding: '12px 24px', background: '#f50057', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '25px' },
+  btnSecondary: { padding: '8px 16px', background: '#333', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' },
+  listCard: { background: '#1e1e1e', borderRadius: '15px', overflow: 'hidden', border: '1px solid #2d2d2d' },
+  listRow: { display: 'flex', padding: '20px', borderBottom: '1px solid #2d2d2d', cursor: 'pointer', transition: '0.2s' },
+  rowTitle: { fontSize: '15px', fontWeight: '600', marginBottom: '5px', color: '#fff' },
+  rowSlug: { fontSize: '12px', color: '#666' },
+  deleteZone: { display: 'flex', alignItems: 'center', padding: '0 20px', color: '#444', transition: '0.2s' },
+  formCard: { background: '#1e1e1e', padding: '30px', borderRadius: '15px', border: '1px solid #2d2d2d' },
+  label: { display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px', textTransform: 'uppercase' },
+  input: { width: '100%', padding: '12px', background: '#121212', border: '1px solid #333', borderRadius: '8px', color: '#fff', marginBottom: '20px', boxSizing: 'border-box' },
+  grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' },
+  grid3: { display: 'grid', gridTemplateColumns: '1.5fr 2fr 1fr', gap: '20px' },
+  textarea: { width: '100%', height: '450px', background: '#121212', border: '1px solid #333', borderRadius: '8px', color: '#fff', padding: '15px', fontFamily: 'monospace', lineHeight: '1.6', boxSizing: 'border-box' },
+  toolBox: { background: '#252525', padding: '15px', borderRadius: '10px', marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' },
+  toolBtn: { padding: '8px 12px', background: '#333', border: 'none', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' },
+  toolInput: { flex: 1, padding: '8px', background: '#121212', border: '1px solid #333', color: '#fff', borderRadius: '5px', fontSize: '12px' },
+  toolAction: { padding: '8px 15px', background: '#f50057', border: 'none', color: '#fff', borderRadius: '5px', cursor: 'pointer' },
+  tagHint: { fontSize: '10px', background: '#333', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer' },
+  btnSave: { width: '100%', padding: '20px', background: '#fff', color: '#000', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '30px' }
+};
+
+// 🟢 鼠标悬停逻辑需要通过 CSS 注入，这里在代码末尾添加简单的全局样式
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.innerHTML = `
+    div[onClick]:hover { background: #252525 !important; }
+    .deleteZone:hover { color: #f50057 !important; }
+  `;
+  document.head.appendChild(style);
+}
