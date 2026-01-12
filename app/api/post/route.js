@@ -6,7 +6,6 @@ export const runtime = 'edge';
 const notion = new Client({ auth: process.env.NOTION_KEY });
 const n2m = new NotionToMarkdown({ notionClient: notion });
 
-// 🟢 核心：解析 :::lock 语法
 function mdToBlocks(markdown) {
   const lines = markdown.split('\n');
   const blocks = [];
@@ -25,17 +24,23 @@ function mdToBlocks(markdown) {
     }
 
     if (isLocking && trimmed === ':::') {
+      // 🟢 关键修改：构建带子块的 Callout
       blocks.push({
         object: 'block',
         type: 'callout',
         callout: {
-          rich_text: [
-            { text: { content: `LOCK:${lockPassword}\n` }, annotations: { bold: true } },
-            { text: { content: "────────────────────────────────\n" }, annotations: { color: "gray" } },
-            { text: { content: lockContent.join('\n') } }
-          ],
+          rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }],
           icon: { type: "emoji", emoji: "🔒" },
-          color: "gray_background"
+          color: "gray_background",
+          // 🚀 在子块里放入原生分割线和正文
+          children: [
+            { object: 'block', type: 'divider', divider: {} }, // 👈 原生分割线
+            ...lockContent.map(contentLine => ({
+              object: 'block',
+              type: 'paragraph',
+              paragraph: { rich_text: [{ text: { content: contentLine || " " } }] }
+            }))
+          ]
         }
       });
       isLocking = false;
@@ -47,7 +52,6 @@ function mdToBlocks(markdown) {
       continue;
     }
 
-    // 普通行处理
     if (!trimmed) {
       blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } });
     } else {
@@ -57,6 +61,7 @@ function mdToBlocks(markdown) {
       } else if (trimmed.startsWith('# ')) {
         blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } });
       } else {
+        // 简单处理加粗和链接
         blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: trimmed } }] } });
       }
     }
@@ -70,12 +75,12 @@ export async function GET(request) {
     const page = await notion.pages.retrieve({ page_id: id });
     const mdblocks = await n2m.pageToMarkdown(id);
     
-    // 反向解析：把 Notion 的 Callout 变回 :::lock 方便再次编辑
+    // 反向解析
     mdblocks.forEach(b => {
       if (b.type === 'callout' && b.parent.includes('LOCK:')) {
-        const match = b.parent.match(/LOCK:([^\n]+)/);
-        const pwd = match ? match[1] : '123';
-        const body = b.parent.split('───')[1] || '';
+        const pwd = b.parent.match(/LOCK:([^\n]+)/)?.[1] || '123';
+        // 过滤掉 md 转换过程中产生的额外横线字符
+        const body = b.parent.split('---').pop() || ''; 
         b.parent = `:::lock ${pwd}\n${body.trim()}\n:::`;
       }
     });
@@ -123,6 +128,7 @@ export async function POST(request) {
       await notion.pages.update({ page_id: id, properties: props });
       const children = await notion.blocks.children.list({ block_id: id });
       await Promise.all(children.results.map(b => notion.blocks.delete({ block_id: b.id })));
+      // 这里的 20 是为了防止一次性写入太多 block 触发速率限制
       for (let i = 0; i < newBlocks.length; i += 20) {
         await notion.blocks.children.append({ block_id: id, children: newBlocks.slice(i, i + 20) });
       }
