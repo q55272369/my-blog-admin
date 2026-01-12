@@ -15,57 +15,41 @@ function mdToBlocks(markdown) {
 
   for (let line of lines) {
     const trimmed = line.trim();
-
     if (trimmed.startsWith(':::lock')) {
       isLocking = true;
-      // 🟢 防御性清理：移除所有可能的干扰符
       lockPassword = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
       lockContent = [];
       continue;
     }
-
     if (isLocking && trimmed === ':::') {
       blocks.push({
-        object: 'block',
-        type: 'callout',
+        object: 'block', type: 'callout',
         callout: {
           rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }],
           icon: { type: "emoji", emoji: "🔒" },
           color: "gray_background",
-          // 🚀 核心优化：让 Callout 内部支持原生积木
           children: [
             { object: 'block', type: 'divider', divider: {} },
-            ...lockContent.map(contentLine => {
-              const imgMatch = contentLine.trim().match(/!\[.*\]\((.*)\)/);
-              if (imgMatch) {
-                // 🟢 重点：如果在加密块内发现图片，生成原生 Image 积木
-                return { object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } };
-              }
-              return { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: contentLine || " " } }] } };
-            })
+            ...lockContent.map(contentLine => ({
+              object: 'block', type: 'paragraph',
+              paragraph: { rich_text: [{ text: { content: contentLine || " " } }] }
+            }))
           ]
         }
       });
       isLocking = false;
       continue;
     }
-
-    if (isLocking) {
-      lockContent.push(line);
-      continue;
-    }
-
+    if (isLocking) { lockContent.push(line); continue; }
     if (!trimmed) {
       blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } });
       continue;
     }
-
     const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
     if (imgMatch) {
       blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } });
       continue;
     }
-
     if (trimmed.startsWith('# ')) {
       blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } });
     } else {
@@ -89,24 +73,14 @@ export async function GET(request) {
   try {
     const page = await notion.pages.retrieve({ page_id: id });
     const mdblocks = await n2m.pageToMarkdown(id);
-    
     mdblocks.forEach(b => {
       if (b.type === 'callout' && b.parent.includes('LOCK:')) {
-        // 🟢 深度清理逻辑：只保留核心密码和纯净内容
-        const lines = b.parent.split('\n');
-        const pwdMatch = lines[0].match(/LOCK:([a-zA-Z0-9]+)/);
-        const pwd = pwdMatch ? pwdMatch[1] : '123';
-        
-        // 过滤掉带 >、横线、图标的内容行
-        const cleanBody = lines.slice(1)
-          .map(l => l.replace(/^>\s*/, '').replace(/^[🔒\s*-]+/, '').trim())
-          .filter(l => l !== '' && !l.includes('───'))
-          .join('\n');
-
-        b.parent = `:::lock ${pwd}\n${cleanBody}\n:::`;
+        const rawTitle = b.parent.split('\n')[0] || '';
+        const pwd = rawTitle.replace(/LOCK:/i, '').replace(/\*/g, '').trim();
+        const body = b.parent.split('---').pop() || ''; 
+        b.parent = `:::lock ${pwd}\n${body.trim()}\n:::`;
       }
     });
-
     const mdString = n2m.toMarkdownString(mdblocks);
     const p = page.properties;
     return NextResponse.json({
@@ -120,6 +94,7 @@ export async function GET(request) {
         cover: p.cover?.url || '',
         status: p.status?.status?.name || 'Published',
         date: p.date?.date?.start || '',
+        type: p.type?.select?.name || 'Post', // 🟢 确保传回类型
         content: mdString.parent
       }
     });
@@ -129,7 +104,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { id, title, content, slug, excerpt, category, tags, cover, status, date } = body;
+    const { id, title, content, slug, excerpt, category, tags, cover, status, date, type } = body;
     const dbId = process.env.NOTION_DATABASE_ID;
     const newBlocks = mdToBlocks(content);
     
@@ -142,7 +117,8 @@ export async function POST(request) {
       "status": { status: { name: status } },
       "date": date ? { date: { start: date } } : null,
       "update_date": { date: { start: new Date().toISOString() } },
-      "type": { select: { name: "Post" } }
+      // 🟢 核心修正：使用变量 type 而不是写死 "Post"
+      "type": { select: { name: type || "Post" } } 
     };
     if (cover) props["cover"] = { url: cover };
 
