@@ -4,24 +4,16 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'edge';
 
-// 🟢 同样统一使用 NOTION_KEY
 const notion = new Client({ auth: process.env.NOTION_KEY });
 const n2m = new NotionToMarkdown({ notionClient: notion });
 
-// 内置极简 MD 转 Blocks 函数
 function simpleMdToBlocks(markdown) {
   const lines = markdown.split('\n');
-  const blocks = [];
-  for (let line of lines) {
-    line = line.trim();
-    if (!line) continue;
-    if (line.startsWith('# ')) {
-      blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ type: 'text', text: { content: line.replace('# ', '') } }] } });
-    } else {
-      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: line } }] } });
-    }
-  }
-  return blocks;
+  return lines.map(line => ({
+    object: 'block',
+    type: 'paragraph',
+    paragraph: { rich_text: [{ type: 'text', text: { content: line || " " } }] }
+  }));
 }
 
 export async function GET(request) {
@@ -52,25 +44,41 @@ export async function POST(request) {
     const dbId = process.env.NOTION_DATABASE_ID;
     const newBlocks = simpleMdToBlocks(content);
     const now = new Date().toISOString();
+    
+    // 基础属性
     const props = {
         "title": { title: [{ text: { content: title } }] },
         "slug": { rich_text: [{ text: { content: slug } }] },
         "excerpt": { rich_text: [{ text: { content: excerpt || "" } }] },
         "update_date": { date: { start: now } }
     };
+
     if (id) {
+        // 更新模式
         await notion.pages.update({ page_id: id, properties: props });
         const children = await notion.blocks.children.list({ block_id: id });
         for (const block of children.results) { await notion.blocks.delete({ block_id: block.id }); }
         await notion.blocks.children.append({ block_id: id, children: newBlocks });
         return NextResponse.json({ success: true });
     } else {
+        // 新建模式
         await notion.pages.create({
             parent: { database_id: dbId },
-            properties: { ...props, "type": { select: { name: 'Post' } }, "status": { select: { name: 'Published' } }, "date": { date: { start: now } } },
+            properties: { 
+                ...props, 
+                // 默认新建的都设为 Post 类型，你也可以在 Notion 手动改
+                "type": { select: { name: 'Post' } }, 
+                // 🟢 这里的 status 必须匹配 Notion 的 Status 属性格式
+                "status": { status: { name: 'Published' } }, 
+                "date": { date: { start: now } } 
+            },
             children: newBlocks,
         });
         return NextResponse.json({ success: true });
     }
-  } catch (error) { return NextResponse.json({ success: false, error: error.message }, { status: 500 }); }
+  } catch (error) { 
+    // 打印具体错误到控制台
+    console.error("Notion Error:", error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 }); 
+  }
 }
