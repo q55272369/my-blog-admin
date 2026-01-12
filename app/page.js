@@ -9,13 +9,12 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('Post');
 
-  // 表单状态
   const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' });
   const [currentId, setCurrentId] = useState(null);
 
-  // 快捷工具状态
-  const [rawLink, setRawLink] = useState('');
-  const [mdLink, setMdLink] = useState('');
+  // 🟢 快捷工具状态：支持多行处理
+  const [rawLinks, setRawLinks] = useState('');
+  const [mdLinks, setMdLinks] = useState('');
 
   const LSKY_URL = "https://x1file.top/dashboard"; 
   const CLOUDREVE_URL = "https://x1file.top/home"; 
@@ -23,7 +22,6 @@ export default function Home() {
   useEffect(() => {
     setMounted(true);
     fetchPosts();
-    // 🟢 注入样式：包括悬浮提亮和删除区居中逻辑
     const style = document.createElement('style');
     style.innerHTML = `
       body { background-color: #18181c; color: #e1e1e3; margin: 0; font-family: "Inter", system-ui, sans-serif; }
@@ -35,7 +33,7 @@ export default function Home() {
       .tag-chip { background: #2d2d32; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #a1a1a6; margin-right: 5px; cursor: pointer; transition: 0.2s; }
       .tag-chip:hover { background: #3e3e42; color: #fff; }
       .btn-click:active { transform: scale(0.97); }
-      input, select, textarea { transition: border 0.2s; }
+      input, select, textarea { transition: border 0.2s; outline: none; }
       input:focus, textarea:focus { border-color: #007aff !important; }
     `;
     document.head.appendChild(style);
@@ -53,22 +51,30 @@ export default function Home() {
     } finally { setLoading(false); }
   }
 
-  // 🟢 智能 Slug 生成逻辑
-  const generateAutoSlug = () => {
-    return 'p-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+  // 🟢 智能 Slug 生成
+  const generateAutoSlug = () => 'p-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+
+  // 🟢 核心逻辑：批量转换直链为 Markdown 结构
+  const convertBatchLinks = () => {
+    if (!rawLinks.trim()) return;
+    const lines = rawLinks.split('\n').filter(l => l.trim() !== '');
+    const converted = lines.map(url => {
+      const cleanUrl = url.trim();
+      const fileName = cleanUrl.split('/').pop() || 'image';
+      return `![${fileName}](${cleanUrl})`;
+    }).join('\n');
+    setMdLinks(converted);
   };
 
   const handleEdit = (post) => {
     setLoading(true);
-    fetch(`/api/post?id=${post.id}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setForm(data.data);
-          setCurrentId(post.id);
-          setView('edit');
-        }
-      }).finally(() => setLoading(false));
+    fetch(`/api/post?id=${post.id}`).then(res => res.json()).then(data => {
+      if (data.success) {
+        setForm(data.data);
+        setCurrentId(post.id);
+        setView('edit');
+      }
+    }).finally(() => setLoading(false));
   };
 
   const handleSave = async () => {
@@ -100,7 +106,7 @@ export default function Home() {
       <div style={css.container}>
         <header style={css.header}>
           <div style={css.logo}>CMS<span style={{color:'#007aff'}}>CONSOLE</span></div>
-          {view === 'edit' && <button onClick={() => setView('list')} className="btn-click" style={css.btnBack}>取消返回</button>}
+          {view === 'edit' && <button onClick={() => setView('list')} className="btn-click" style={css.btnBack}>返回</button>}
         </header>
 
         {view === 'list' ? (
@@ -113,31 +119,25 @@ export default function Home() {
                 </div>
                 <button onClick={() => { 
                     setForm({title:'', slug: generateAutoSlug(), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type:'Post', date: new Date().toISOString().split('T')[0]}); 
-                    setCurrentId(null); 
-                    setView('edit'); 
+                    setCurrentId(null); setView('edit'); 
                 }} className="btn-click" style={css.btnNew}>新建{activeTab}</button>
             </div>
 
             <div style={css.listBody}>
-              {loading && <div style={{padding:'40px', textAlign:'center', color:'#666'}}>正在载入云端数据...</div>}
+              {loading && <div style={{padding:'40px', textAlign:'center', color:'#666'}}>载入数据中...</div>}
               {!loading && posts.filter(p => p.type === activeTab).map(p => (
                 <div key={p.id} onClick={() => handleEdit(p)} className="row-container">
                   <div className="row-content">
-                    <div style={css.rowMain}>
-                        <div style={css.rowTitle}>{p.title}</div>
-                        <div style={css.rowMeta}>{p.category} · {p.date || '无日期'}</div>
-                    </div>
+                    <div style={css.rowTitle}>{p.title}</div>
+                    <div style={css.rowMeta}>{p.category} · {p.date || '无日期'}</div>
                   </div>
-                  <div onClick={(e) => handleDelete(e, p.id)} className="delete-drawer">
-                    删除
-                  </div>
+                  <div onClick={(e) => handleDelete(e, p.id)} className="delete-drawer">删除</div>
                 </div>
               ))}
             </div>
           </main>
         ) : (
           <main style={css.formPanel}>
-            {/* 🟢 标题行：已移除 Slug 显示，让视觉更专注 */}
             <div style={{marginBottom:'20px'}}>
                 <label style={css.label}>文章标题</label>
                 <input style={css.input} value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="在此输入标题..." />
@@ -146,8 +146,9 @@ export default function Home() {
             <div style={css.grid3}>
               <div>
                 <label style={css.label}>分类</label>
-                <input list="cats" style={css.input} value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
-                <datalist id="cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist>
+                {/* 🟢 优化点：autoComplete="off" 杜绝浏览器历史记录干扰 */}
+                <input list="notion-cats" autoComplete="off" style={css.input} value={form.category} onChange={e => setForm({...form, category: e.target.value})} placeholder="选择或输入" />
+                <datalist id="notion-cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist>
               </div>
               <div>
                 <label style={css.label}>日期</label>
@@ -161,21 +162,22 @@ export default function Home() {
               </div>
             </div>
 
-            <label style={css.label}>标签 (点击已有标签快捷添加)</label>
+            <label style={css.label}>标签 (点击快捷添加)</label>
             <div style={{marginBottom:'20px'}}>
-                <input style={{...css.input, marginBottom:'8px'}} value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} placeholder="用逗号隔开..." />
+                <input style={{...css.input, marginBottom:'8px'}} value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} placeholder="标签1,标签2..." />
                 <div style={{display:'flex', gap:'5px', flexWrap:'wrap'}}>
                     {options.tags.map(t => (
                         <span key={t} className="tag-chip" onClick={() => {
-                            if(!form.tags.includes(t)) setForm({...form, tags: form.tags ? `${form.tags},${t}` : t})
+                            const current = form.tags.split(',').map(x => x.trim()).filter(Boolean);
+                            if(!current.includes(t)) setForm({...form, tags: [...current, t].join(',')})
                         }}>{t}</span>
                     ))}
                 </div>
             </div>
 
             <div style={css.grid2}>
-                <div><label style={css.label}>封面图链接 (Cover)</label><input style={css.input} value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} /></div>
-                <div><label style={css.label}>发布状态</label>
+                <div><label style={css.label}>封面图链接</label><input style={css.input} value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} placeholder="https://..." /></div>
+                <div><label style={css.label}>状态</label>
                   <select style={css.input} value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
                     <option value="Published">公开</option><option value="Hidden">隐藏</option>
                   </select>
@@ -185,21 +187,28 @@ export default function Home() {
             <label style={css.label}>摘要 (Excerpt)</label>
             <input style={css.input} value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} />
 
-            {/* 🟢 恢复：素材助手工具箱 */}
+            {/* 🟢 优化：批量素材助手 */}
             <div style={css.toolBox}>
               <div style={{display:'flex', gap:'10px', marginBottom:'12px'}}>
                 <button onClick={() => window.open(LSKY_URL)} style={css.toolBtn}>🖼️ 打开图床</button>
                 <button onClick={() => window.open(CLOUDREVE_URL)} style={css.toolBtn}>🎬 打开网盘</button>
               </div>
-              <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
-                <span style={{fontSize:'12px', color:'#9ea0a5'}}>直链转 MD:</span>
-                <input style={css.toolInput} placeholder="粘贴链接..." value={rawLink} onChange={e => setRawLink(e.target.value)} />
-                <button onClick={() => { const fn = rawLink.split('/').pop(); setMdLink(`![${fn}](${rawLink})`); }} style={css.toolAction}>转换</button>
+              <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+                <div style={{fontSize:'11px', color:'#9ea0a5', fontWeight:'bold'}}>批量链接转 Markdown (支持多行粘贴)</div>
+                <div style={{display:'flex', gap:'10px'}}>
+                    <textarea 
+                        style={{...css.toolInput, height: Math.max(45, rawLinks.split('\n').length * 20) + 'px', transition:'height 0.2s'}} 
+                        placeholder="在此粘贴一个或多个直链..." 
+                        value={rawLinks} 
+                        onChange={e => setRawLinks(e.target.value)} 
+                    />
+                    <button onClick={convertBatchLinks} style={css.toolAction}>转换</button>
+                </div>
               </div>
-              {mdLink && (
-                <div style={{marginTop:'10px', padding:'8px', background:'rgba(0,122,255,0.1)', borderRadius:'6px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                    <code style={{fontSize:'11px', color:'#007aff'}}>{mdLink}</code>
-                    <button onClick={() => {navigator.clipboard.writeText(mdLink); alert('已复制')}} style={css.miniBtn}>点击复制</button>
+              {mdLinks && (
+                <div style={{marginTop:'12px', padding:'12px', background:'#18181c', borderRadius:'8px', border:'1px solid #38444d'}}>
+                    <pre style={{margin:0, fontSize:'11px', color:'#007aff', whiteSpace:'pre-wrap', fontFamily:'monospace'}}>{mdLinks}</pre>
+                    <button onClick={() => {navigator.clipboard.writeText(mdLinks); alert('已全部复制')}} style={{...css.miniBtn, marginTop:'10px', width:'100%'}}>点击复制全部</button>
                 </div>
               )}
             </div>
@@ -208,7 +217,7 @@ export default function Home() {
             <textarea style={css.textarea} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="在这里开始创作..." />
 
             <button onClick={handleSave} disabled={loading} className="btn-click" style={css.btnSave}>
-                {loading ? '正在同步至云端边缘节点...' : '🚀 确认发布 / 覆盖更新'}
+                {loading ? '⚡ 正在同步至云端...' : '🚀 确认发布 / 覆盖更新'}
             </button>
           </main>
         )}
@@ -221,26 +230,26 @@ const css = {
   page: { minHeight: '100vh' },
   container: { maxWidth: '900px', margin: '0 auto', padding: '40px 20px' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
-  logo: { fontSize: '20px', fontWeight: '900', color: '#fff' },
+  logo: { fontSize: '20px', fontWeight: '900', color: '#fff', letterSpacing:'1px' },
   listHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
-  tabs: { background: '#252529', padding: '4px', borderRadius: '10px', display: 'flex' },
+  tabs: { background: '#252529', padding: '4px', borderRadius: '12px', display: 'flex' },
   tab: { padding: '8px 25px', border: 'none', background: 'none', color: '#9ea0a5', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
-  tabActive: { padding: '8px 25px', border: 'none', background: '#3e3e42', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
+  tabActive: { padding: '8px 25px', border: 'none', background: '#3e3e42', color: '#fff', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' },
   btnNew: { padding: '10px 24px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' },
-  btnBack: { padding: '10px 20px', background: '#2d2d30', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize:'13px' },
+  btnBack: { padding: '8px 20px', background: '#2d2d30', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize:'13px', fontWeight:'bold' },
   listBody: { display: 'flex', flexDirection: 'column' },
   rowTitle: { fontSize: '16px', fontWeight: '600', color: '#f1f1f3', marginBottom: '4px' },
   rowMeta: { fontSize: '12px', color: '#666' },
-  formPanel: { background: '#202024', padding: '30px', borderRadius: '16px', border: '1px solid #2d2d30' },
-  label: { display: 'block', fontSize: '11px', color: '#9ea0a5', marginBottom: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing:'1px' },
-  input: { width: '100%', padding: '14px', background: '#18181c', border: '1px solid #333', borderRadius: '8px', color: '#fff', marginBottom: '20px', boxSizing: 'border-box', outline: 'none', fontSize:'15px' },
+  formPanel: { background: '#202024', padding: '30px', borderRadius: '20px', border: '1px solid #2d2d30' },
+  label: { display: 'block', fontSize: '10px', color: '#666', marginBottom: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing:'1.5px' },
+  input: { width: '100%', padding: '14px', background: '#18181c', border: '1px solid #333', borderRadius: '10px', color: '#fff', marginBottom: '20px', boxSizing: 'border-box', outline: 'none', fontSize:'15px' },
   grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' },
   grid3: { display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '20px' },
-  textarea: { width: '100%', height: '500px', background: '#18181c', border: '1px solid #333', borderRadius: '8px', color: '#fff', padding: '15px', fontFamily: 'monospace', lineHeight: '1.6', boxSizing: 'border-box', outline: 'none', fontSize:'16px' },
-  toolBox: { background: '#2d2d32', padding: '20px', borderRadius: '12px', marginBottom: '25px', border: '1px solid #38383d' },
-  toolBtn: { padding: '10px 15px', background: '#3e3e42', border: 'none', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' },
-  toolInput: { flex: 1, padding: '10px', background: '#18181c', border: '1px solid #3e3e42', color: '#fff', borderRadius: '6px', outline: 'none' },
-  toolAction: { padding: '10px 20px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight:'bold' },
-  miniBtn: { padding: '4px 10px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' },
-  btnSave: { width: '100%', padding: '20px', background: '#fff', color: '#000', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '30px' }
+  textarea: { width: '100%', height: '500px', background: '#18181c', border: '1px solid #333', borderRadius: '10px', color: '#fff', padding: '15px', fontFamily: 'monospace', lineHeight: '1.6', boxSizing: 'border-box', fontSize:'16px' },
+  toolBox: { background: '#2d2d32', padding: '20px', borderRadius: '16px', marginBottom: '30px', border: '1px solid #38383d' },
+  toolBtn: { padding: '10px 15px', background: '#3e3e42', border: 'none', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' },
+  toolInput: { flex: 1, padding: '12px', background: '#18181c', border: '1px solid #3e3e42', color: '#fff', borderRadius: '8px', fontSize: '13px', resize: 'none', overflow:'hidden' },
+  toolAction: { padding: '0 20px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight:'bold' },
+  miniBtn: { padding: '8px', background: '#333', color: '#007aff', border: '1px solid #007aff', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight:'bold' },
+  btnSave: { width: '100%', padding: '20px', background: '#fff', color: '#000', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '30px', boxShadow: '0 4px 15px rgba(255,255,255,0.1)' }
 };
