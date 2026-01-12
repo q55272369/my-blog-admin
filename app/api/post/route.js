@@ -1,55 +1,49 @@
 import { Client } from '@notionhq/client';
-import { NotionToMarkdown } from 'notion-to-md';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'edge';
 const notion = new Client({ auth: process.env.NOTION_KEY });
-const n2m = new NotionToMarkdown({ notionClient: notion });
 
-// 🟢 增强版富文本解析：支持 [文字]{颜色} 语法
-function parseRichText(text) {
+// 🟢 HTML 标签转 Notion 富文本积木
+function htmlToRichText(html) {
   const richText = [];
-  // 匹配加粗 **text**, 链接 [text](url), 颜色 [text]{color}
-  const regex = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\)|\[[^\]]+\]\{[a-z]+\})/g;
-  let match;
-  let lastIndex = 0;
+  // 简单的正则拆分标签 (支持 <b>, <span style="color:...">, <a>)
+  const parts = html.split(/(<[^>]+>[^<]*<\/[^>]+>|<[^>]+>)/g).filter(Boolean);
 
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      richText.push({ text: { content: text.substring(lastIndex, match.index) } });
+  for (const part of parts) {
+    if (part.startsWith('<b') || part.startsWith('<strong')) {
+      const text = part.replace(/<[^>]+>/g, '');
+      richText.push({ text: { content: text }, annotations: { bold: true } });
+    } else if (part.startsWith('<span')) {
+      const text = part.replace(/<[^>]+>/g, '');
+      const colorMatch = part.match(/color:\s*([^;"]+)/);
+      const color = colorMatch ? colorMatch[1] : 'default';
+      richText.push({ text: { content: text }, annotations: { color: color } });
+    } else if (part.startsWith('<a')) {
+      const text = part.replace(/<[^>]+>/g, '');
+      const hrefMatch = part.match(/href="([^"]+)"/);
+      richText.push({ text: { content: text, link: hrefMatch ? { url: hrefMatch[1] } : null } });
+    } else if (!part.startsWith('<')) {
+      richText.push({ text: { content: part } });
     }
-
-    const part = match[0];
-    if (part.startsWith('**')) {
-      richText.push({ text: { content: part.slice(2, -2) }, annotations: { bold: true } });
-    } else if (part.includes(']{')) {
-      // 处理颜色样式 [文字]{red}
-      const content = part.match(/\[([^\]]+)\]/)[1];
-      const color = part.match(/\{([^}]+)\}/)[1];
-      richText.push({ text: { content: content }, annotations: { color: color } });
-    } else if (part.startsWith('[')) {
-      const linkText = part.match(/\[([^\]]+)\]/)[1];
-      const linkUrl = part.match(/\(([^)]+)\)/)[1];
-      richText.push({ text: { content: linkText, link: { url: linkUrl } } });
-    }
-    lastIndex = regex.lastIndex;
   }
-
-  if (lastIndex < text.length) {
-    richText.push({ text: { content: text.substring(lastIndex) } });
-  }
-  return richText.length > 0 ? richText : [{ text: { content: text } }];
+  return richText.length > 0 ? richText : [{ text: { content: html.replace(/<[^>]+>/g, '') } }];
 }
 
-function smartBlocks(markdown) {
-  const lines = markdown.split('\n');
+function processContent(html) {
+  // 将 HTML 按行拆分（<div> 或 <p> 标签）
+  const lines = html.split(/<div>|<\/div>|<p>|<\/p>|<br\/?>/).filter(l => l.trim() !== '');
   return lines.map(line => {
-    const trimmed = line.trim();
-    if (!trimmed) return { object: 'block', type: 'paragraph', paragraph: { rich_text: [] } };
-    const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
-    if (imgMatch) return { object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1] } } };
-    if (trimmed.startsWith('# ')) return { object: 'block', type: 'heading_1', heading_1: { rich_text: [{ type: 'text', text: { content: trimmed.replace('# ', '') } }] } };
-    return { object: 'block', type: 'paragraph', paragraph: { rich_text: parseRichText(trimmed) } };
+    const text = line.trim();
+    if (text.startsWith('<h1>')) {
+      return { object: 'block', type: 'heading_1', heading_1: { rich_text: htmlToRichText(text.replace(/<\/?h1>/g, '')) } };
+    }
+    // 图片处理
+    const imgMatch = text.match(/src="([^"]+)"/);
+    if (text.includes('<img')) {
+      return { object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1] } } };
+    }
+    return { object: 'block', type: 'paragraph', paragraph: { rich_text: htmlToRichText(text) } };
   });
 }
 
@@ -57,9 +51,8 @@ export async function GET(request) {
   const id = new URL(request.url).searchParams.get('id');
   try {
     const page = await notion.pages.retrieve({ page_id: id });
-    const mdblocks = await n2m.pageToMarkdown(id);
-    const mdString = n2m.toMarkdownString(mdblocks);
     const p = page.properties;
+    // 注意：获取现有内容在 Edge 环境下较复杂，简化为返回属性，正文建议重新编辑或在 Notion 查看
     return NextResponse.json({
         success: true,
         data: {
@@ -69,10 +62,9 @@ export async function GET(request) {
           category: p.category?.select?.name || '',
           tags: p.tags?.multi_select?.map(t => t.name).join(',') || '',
           cover: p.cover?.url || '',
-          type: p.type?.select?.name || 'Post',
           status: p.status?.status?.name || 'Published',
           date: p.date?.date?.start || '',
-          content: mdString.parent
+          content: '' // 富文本模式建议主要用于创作新内容
         }
     });
   } catch (error) { return NextResponse.json({ success: false }); }
@@ -81,9 +73,12 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { id, title, content, slug, excerpt, category, tags, cover, type, status, date } = body;
+    const { id, title, content, slug, excerpt, category, tags, cover, status, date } = body;
     const dbId = process.env.NOTION_DATABASE_ID;
-    const newBlocks = smartBlocks(content);
+    
+    const blocks = processContent(content);
+    const now = new Date().toISOString();
+
     const props = {
       "title": { title: [{ text: { content: title || "无标题" } }] },
       "slug": { rich_text: [{ text: { content: slug || "" } }] },
@@ -91,21 +86,21 @@ export async function POST(request) {
       "category": category ? { select: { name: category } } : { select: null },
       "tags": { multi_select: (tags || "").split(',').filter(t => t.trim()).map(t => ({ name: t.trim() })) },
       "status": { status: { name: status || "Published" } },
-      "type": { select: { name: type || "Post" } },
-      "update_date": { date: { start: new Date().toISOString() } },
-      "date": date ? { date: { start: date } } : null
+      "update_date": { date: { start: now } },
+      "type": { select: { name: "Post" } }
     };
+    if (date) props["date"] = { date: { start: date } };
     if (cover) props["cover"] = { url: cover };
 
     if (id) {
       await notion.pages.update({ page_id: id, properties: props });
       const children = await notion.blocks.children.list({ block_id: id });
       await Promise.all(children.results.map(b => notion.blocks.delete({ block_id: b.id })));
-      for (let i = 0; i < newBlocks.length; i += 20) {
-        await notion.blocks.children.append({ block_id: id, children: newBlocks.slice(i, i + 20) });
+      for (let i = 0; i < blocks.length; i += 10) {
+        await notion.blocks.children.append({ block_id: id, children: blocks.slice(i, i + 10) });
       }
     } else {
-      await notion.pages.create({ parent: { database_id: dbId }, properties: props, children: newBlocks.slice(0, 50) });
+      await notion.pages.create({ parent: { database_id: dbId }, properties: props, children: blocks.slice(0, 50) });
     }
     return NextResponse.json({ success: true });
   } catch (error) { return NextResponse.json({ success: false, error: error.message }); }
