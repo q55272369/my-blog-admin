@@ -3,7 +3,6 @@ import { NotionToMarkdown } from 'notion-to-md';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'edge';
-
 const notion = new Client({ auth: process.env.NOTION_KEY });
 const n2m = new NotionToMarkdown({ notionClient: notion });
 
@@ -20,11 +19,10 @@ function smartMdToBlocks(markdown) {
 }
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const pageId = searchParams.get('id');
+  const id = new URL(request.url).searchParams.get('id');
   try {
-    const page = await notion.pages.retrieve({ page_id: pageId });
-    const mdblocks = await n2m.pageToMarkdown(pageId);
+    const page = await notion.pages.retrieve({ page_id: id });
+    const mdblocks = await n2m.pageToMarkdown(id);
     const mdString = n2m.toMarkdownString(mdblocks);
     const p = page.properties;
     return NextResponse.json({
@@ -38,7 +36,7 @@ export async function GET(request) {
           cover: p.cover?.url || '',
           type: p.type?.select?.name || 'Post',
           status: p.status?.status?.name || 'Published',
-          date: p.date?.date?.start || '', // 🟢 读取日期
+          date: p.date?.date?.start || '',
           content: mdString.parent
         }
     });
@@ -49,7 +47,6 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const { id, title, content, slug, excerpt, category, tags, cover, type, status, date } = body;
-    const dbId = process.env.NOTION_DATABASE_ID;
     const newBlocks = smartMdToBlocks(content);
     const now = new Date().toISOString();
 
@@ -57,41 +54,27 @@ export async function POST(request) {
       "title": { title: [{ text: { content: title } }] },
       "slug": { rich_text: [{ text: { content: slug } }] },
       "excerpt": { rich_text: [{ text: { content: excerpt || "" } }] },
+      "category": category ? { select: { name: category } } : { select: null },
+      "tags": { multi_select: (tags || "").split(',').filter(t => t.trim()).map(t => ({ name: t.trim() })) },
       "status": { status: { name: status } },
       "type": { select: { name: type } },
-      "update_date": { date: { start: now } }
+      "update_date": { date: { start: now } },
+      "date": date ? { date: { start: date } } : null
     };
-
-    // 🟢 处理日期 (如果没选则留空或填当前)
-    if (date) { props["date"] = { date: { start: date } }; }
-    
-    // 🟢 处理分类 (Select)
-    if (category) { props["category"] = { select: { name: category } }; }
-    else { props["category"] = null; }
-
-    // 🟢 处理标签 (Multi-select)
-    props["tags"] = { 
-      multi_select: (tags || "").split(',').filter(t => t.trim()).map(t => ({ name: t.trim() })) 
-    };
-
-    if (cover) { props["cover"] = { url: cover }; }
+    if (cover) props["cover"] = { url: cover };
 
     if (id) {
+      // 1. 更新属性
       await notion.pages.update({ page_id: id, properties: props });
+      // 2. 只有当更新成功后，才执行内容重写
       const children = await notion.blocks.children.list({ block_id: id });
-      
-      // 🚀 性能优化：并发删除旧块 (速度大幅提升)
-      await Promise.all(children.results.map(block => 
-        notion.blocks.delete({ block_id: block.id })
-      ));
-      
+      // 性能与稳定性折中：分批并发删除
+      const deletePromises = children.results.map(b => notion.blocks.delete({ block_id: b.id }));
+      await Promise.all(deletePromises);
+      // 3. 写入新内容
       await notion.blocks.children.append({ block_id: id, children: newBlocks });
     } else {
-      await notion.pages.create({
-        parent: { database_id: dbId },
-        properties: props,
-        children: newBlocks,
-      });
+      await notion.pages.create({ parent: { database_id: process.env.NOTION_DATABASE_ID }, properties: props, children: newBlocks });
     }
     return NextResponse.json({ success: true });
   } catch (error) { return NextResponse.json({ success: false, error: error.message }); }
@@ -102,5 +85,5 @@ export async function DELETE(request) {
   try {
     await notion.pages.update({ page_id: id, archived: true });
     return NextResponse.json({ success: true });
-  } catch (error) { return NextResponse.json({ success: false }); }
+  } catch (e) { return NextResponse.json({ success: false }); }
 }
