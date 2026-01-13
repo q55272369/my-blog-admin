@@ -1,20 +1,56 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
-// 纯净 SVG 图标组件
+// 图标库集成
 const Icons = {
-  Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
-  CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
-  TextMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>,
-  GridMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>,
-  FolderMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>,
-  FolderIcon: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff" style={{opacity:0.8}}><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"></path></svg>
+  Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
+  CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
+  TextMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>,
+  GridMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>,
+  FolderMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>,
+  FolderIcon: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff" style={{opacity:0.8}}><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"></path></svg>,
+  Edit: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>,
+  Trash: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+};
+
+// 🟢 预览渲染引擎组件
+const NotionPreview = ({ blocks }) => {
+  if (!blocks || !blocks.length) return <p style={{color:'#666'}}>暂无内容预览</p>;
+  return (
+    <div style={{color: '#e1e1e3', padding: '10px 0'}}>
+      {blocks.map((block, idx) => {
+        const { type } = block;
+        const data = block[type];
+        const text = data?.rich_text?.[0]?.plain_text || "";
+
+        switch(type) {
+          case 'heading_1': return <h1 key={idx} style={{fontSize:'2em', borderBottom:'1px solid #333', paddingBottom:'0.3em', margin:'1em 0 0.5em'}}>{text}</h1>;
+          case 'paragraph': return <p key={idx} style={{margin:'0.8em 0', minHeight:'1em'}}>{text}</p>;
+          case 'divider': return <hr key={idx} style={{border:'none', borderBottom:'1px solid #333', margin:'1.5em 0'}} />;
+          case 'image': return <img key={idx} src={data.external?.url || data.file?.url} style={{width:'100%', borderRadius:'8px', margin:'1em 0'}} alt="" />;
+          case 'callout': 
+            const isLock = text.includes('LOCK:');
+            return (
+              <div key={idx} style={{background: '#2d2d30', padding: '16px', borderRadius: '8px', border: '1px solid #3e3e42', display: 'flex', gap: '12px', margin: '1em 0'}}>
+                <div style={{fontSize:'1.2em'}}>{block.callout.icon?.emoji || '💡'}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:'bold', color: isLock ? '#007aff' : 'inherit'}}>{text}</div>
+                  {/* 如果有子块（分割线和内容），这里简单示意 */}
+                  <div style={{opacity:0.6, fontSize:'0.9em', marginTop:'8px'}}>[ 此处包含加密保护内容 ]</div>
+                </div>
+              </div>
+            );
+          default: return null;
+        }
+      })}
+    </div>
+  );
 };
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState('list');
-  const [viewMode, setViewMode] = useState('covered'); // 'covered' | 'text' | 'gallery' | 'folder'
+  const [viewMode, setViewMode] = useState('covered');
   const [posts, setPosts] = useState([]);
   const [options, setOptions] = useState({ categories: [], tags: [] });
   const [loading, setLoading] = useState(false);
@@ -22,7 +58,10 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showAllTags, setShowAllTags] = useState(false);
-  const [selectedFolder, setSelectedFolder] = useState(null); // 用于文件夹穿透
+  const [selectedFolder, setSelectedFolder] = useState(null);
+
+  // 🟢 预览状态
+  const [previewPost, setPreviewPost] = useState(null);
 
   const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' });
   const [currentId, setCurrentId] = useState(null);
@@ -32,36 +71,36 @@ export default function Home() {
   const textAreaRef = useRef(null);
   const isFormValid = form.title.trim() !== '' && form.category.trim() !== '' && form.date !== '';
 
-  const CLOUDREVE_URL = "https://x1file.top/home"; 
-
   useEffect(() => {
     setMounted(true); fetchPosts();
     const style = document.head.appendChild(document.createElement('style'));
     style.innerHTML = `
-      body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
-      .card-covered { background: #424242; border-radius: 12px; margin-bottom: 15px; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; display: flex; align-items: stretch; min-height: 120px; border: 1px solid transparent; }
-      .card-covered:hover { background: #4d4d4d; border-color: #555; transform: translateY(-2px); }
-      .card-text { background: #424242; border-bottom: 1px solid #333; padding: 16px 20px; cursor: pointer; transition: 0.1s; display: flex; align-items: center; }
-      .card-text:hover { background: #4d4d4d; }
-      .card-gallery { background: #424242; border-radius: 12px; overflow: hidden; cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; border: 1px solid transparent; }
-      .card-gallery:hover { border-color: #007aff; transform: translateY(-4px); }
-      .card-folder { background: #424242; border-radius: 10px; padding: 15px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 12px; border: 1px solid #555; }
-      .card-folder:hover { background: #4d4d4d; border-color: #007aff; transform: scale(1.02); }
-      .delete-btn { position: absolute; right: -80px; top: 0; bottom: 0; width: 80px; background: #ff4d4f; color: #fff; display: flex; align-items: center; justify-content: center; transition: 0.3s; font-weight: bold; z-index: 10; }
-      .card-covered:hover .delete-btn, .card-text:hover .delete-btn { right: 0; }
-      .tag-chip { background: #333; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #bbb; margin: 0 5px 5px 0; cursor: pointer; position: relative; display: inline-flex; align-items: center; }
-      .tag-chip:hover { color: #fff; background: #555; }
-      .tag-del { position: absolute; top: -5px; right: -5px; background: #ff4d4f; color: white; border-radius: 50%; width: 14px; height: 14px; display: none; align-items: center; justify-content: center; font-size: 10px; border: 1px solid #303030; }
-      .tag-chip:hover .tag-del { display: flex; }
-      input, select, textarea { width: 100%; padding: 14px; background: #424242; border: 1px solid #555; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 14px; outline: none; }
-      input:focus, textarea:focus { border-color: #007aff; }
-      .icon-btn { background: #424242; border: 1px solid #555; color: #bbb; cursor: pointer; border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-      .icon-btn:hover { color: #fff; border-color: #007aff; background: #4d4d4d; }
+      body { background-color: #18181c; color: #e1e1e3; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
+      .card-container { position: relative; display: flex; align-items: stretch; background: #202024; margin-bottom: 12px; border-radius: 12px; overflow: hidden; cursor: pointer; transition: 0.3s; border: 1px solid #2d2d30; }
+      .card-container:hover { border-color: #007aff; transform: translateY(-2px); }
+      .drawer-zone { position: absolute; right: -160px; top: 0; bottom: 0; width: 160px; display: flex; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
+      .card-container:hover .drawer-zone { right: 0; }
+      .drawer-btn { flex: 1; display: flex; align-items: center; justify-content: center; color: #fff; transition: 0.2s; }
+      .edit-btn { background: #007aff; }
+      .edit-btn:hover { background: #008aff; }
+      .del-btn { background: #ff4d4f; }
+      .del-btn:hover { background: #ff7875; }
+      
+      /* 🟢 预览弹窗样式 */
+      .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn 0.2s; backdrop-filter: blur(4px); }
+      .modal-content { background: #202024; width: 90%; maxWidth: 700px; height: 85vh; border-radius: 16px; border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; }
+      .modal-header { padding: 20px 25px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+      .modal-body { flex: 1; overflow-y: auto; padding: 25px; }
+
+      .card-text { background: #202024; border-bottom: 1px solid #2d2d30; padding: 16px 20px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; position: relative; overflow: hidden; }
+      .card-text:hover { background: #2a2a2e; }
+      .card-text:hover .drawer-zone { right: 0; }
+
+      .tag-chip { background: #2d2d32; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #888; margin: 0 5px 5px 0; cursor: pointer; }
+      .btn-interactive:active { transform: scale(0.95); }
+      .search-bar { width: 100%; padding: 14px; background: #202024; border: 1px solid #333; border-radius: 12px; color: #fff; margin-bottom: 20px; outline: none; }
+      .icon-btn { background: #202024; border: 1px solid #333; color: #666; cursor: pointer; border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
       .icon-btn.active { color: #fff; border-color: #007aff; background: #007aff; }
-      .required-star { color: #ff4d4f !important; margin-left: 4px; font-weight: bold; }
-      .btn-interactive { transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s; }
-      .btn-interactive:hover { transform: scale(1.02); filter: brightness(1.15); }
-      .btn-interactive:active { transform: scale(0.98); filter: brightness(0.9); }
     `;
   }, []);
 
@@ -74,19 +113,12 @@ export default function Home() {
     } finally { setLoading(false); }
   }
 
-  const deleteTagOption = async (e, tagName) => {
-    e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return;
+  // 🟢 开启预览逻辑
+  const handlePreview = (post) => {
     setLoading(true);
-    await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' });
-    fetchPosts();
-  };
-
-  const insertText = (before, after = '') => {
-    const el = textAreaRef.current; if (!el) return;
-    const start = el.selectionStart, end = el.selectionEnd, val = el.value;
-    const newText = val.substring(0, start) + before + val.substring(start, end) + after + val.substring(end);
-    setForm({ ...form, content: newText });
-    setTimeout(() => { el.focus(); el.setSelectionRange(start + before.length, end + before.length); }, 10);
+    fetch(`/api/post?id=${post.id}`).then(res => res.json()).then(data => {
+      if (data.success) { setPreviewPost(data.data); }
+    }).finally(() => setLoading(false));
   };
 
   const handleEdit = (post) => {
@@ -98,20 +130,11 @@ export default function Home() {
 
   if (!mounted) return null;
 
-  // 数据过滤：Tab + 搜索 + 文件夹
-  const filteredPosts = posts.filter(p => {
-    const matchTab = p.type === activeTab;
-    const matchSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchFolder = selectedFolder ? p.category === selectedFolder : true;
-    return matchTab && matchSearch && matchFolder;
-  });
-
-  const displayTags = showAllTags ? options.tags : options.tags.slice(0, 12);
+  const filteredPosts = posts.filter(p => (p.type === activeTab) && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug || '').toLowerCase().includes(searchQuery.toLowerCase())));
 
   return (
-    <div style={{ minHeight: '100vh', background: '#303030' }}>
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '30px 20px' }}>
-        
+    <div style={{ minHeight: '100vh', background: '#18181c', padding: '40px 20px' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
           <div style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '1px' }}>PRO<span style={{ color: '#007aff' }}>BLOG</span></div>
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -121,128 +144,117 @@ export default function Home() {
                 <button onClick={() => { setForm({ title: '', slug: 'p-' + Date.now().toString(36), excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: activeTab, date: new Date().toISOString().split('T')[0] }); setCurrentId(null); setView('edit'); }} style={{ padding: '0 25px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }} className="btn-interactive">发布新内容</button>
               </>
             )}
-            {view === 'edit' && <button onClick={() => setView('list')} style={{ padding: '8px 25px', background: '#424242', color: '#fff', border: '1px solid #555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }} className="btn-interactive">返回</button>}
+            {view === 'edit' && <button onClick={() => setView('list')} style={{ padding: '8px 25px', background: '#2d2d30', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }} className="btn-interactive">返回</button>}
           </div>
         </header>
 
         {view === 'list' ? (
           <main>
-            <div style={{ display: 'flex', background: '#424242', padding: '5px', borderRadius: '12px', marginBottom: '25px', width: 'fit-content' }}>
+            <div style={{ display: 'flex', background: '#202024', padding: '5px', borderRadius: '12px', marginBottom: '25px', width: 'fit-content' }}>
               {['Post', 'Widget'].map(t => (
-                <button key={t} onClick={() => { setActiveTab(t); setSearchQuery(''); setSelectedFolder(null); }} style={{ padding: '10px 30px', border: 'none', background: activeTab === t ? '#555' : 'none', color: activeTab === t ? '#fff' : '#888', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>{t === 'Post' ? '已发布' : '组件'}</button>
+                <button key={t} onClick={() => { setActiveTab(t); setSearchQuery(''); }} style={{ padding: '10px 30px', border: 'none', background: activeTab === t ? '#2d2d32' : 'none', color: activeTab === t ? '#fff' : '#888', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>{t === 'Post' ? '已发布' : '组件'}</button>
               ))}
             </div>
 
-            {isSearchOpen && (
-              <div style={{ marginBottom: '20px', animation: 'fadeIn 0.3s' }}>
-                <input style={{ background: '#424242', border: '1px solid #007aff' }} placeholder="搜索标题或Slug..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-              </div>
-            )}
+            {isSearchOpen && <input className="search-bar" placeholder="搜索标题或Slug..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />}
 
-            {/* 视图切换栏 */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', padding:'0 4px' }}>
-                <div style={{fontSize:'12px', color:'#888', fontWeight:'bold'}}>{selectedFolder ? `📂 分类: ${selectedFolder}` : '所有条目'}</div>
-                <div style={{display:'flex', gap:'8px'}}>
-                    <button onClick={() => {setViewMode('folder'); setSelectedFolder(null);}} className={`icon-btn btn-interactive ${viewMode === 'folder' ? 'active' : ''}`} style={{width:'34px', height:'34px'}}><Icons.FolderMode /></button>
-                    <button onClick={() => setViewMode('covered')} className={`icon-btn btn-interactive ${viewMode === 'covered' ? 'active' : ''}`} style={{width:'34px', height:'34px'}}><Icons.CoverMode /></button>
-                    <button onClick={() => setViewMode('text')} className={`icon-btn btn-interactive ${viewMode === 'text' ? 'active' : ''}`} style={{width:'34px', height:'34px'}}><Icons.TextMode /></button>
-                    <button onClick={() => setViewMode('gallery')} className={`icon-btn btn-interactive ${viewMode === 'gallery' ? 'active' : ''}`} style={{width:'34px', height:'34px'}}><Icons.GridMode /></button>
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '15px' }}>
+                <button onClick={() => setViewMode('covered')} className={`icon-btn ${viewMode === 'covered' ? 'active' : ''}`}><Icons.CoverMode /></button>
+                <button onClick={() => setViewMode('text')} className={`icon-btn ${viewMode === 'text' ? 'active' : ''}`}><Icons.TextMode /></button>
+                <button onClick={() => setViewMode('gallery')} className={`icon-btn ${viewMode === 'gallery' ? 'active' : ''}`}><Icons.GridMode /></button>
             </div>
 
-            <div style={viewMode === 'gallery' || viewMode === 'folder' ? {display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'15px'} : {}}>
-              {loading && <div style={{textAlign:'center', padding:'40px', color:'#666'}}>载入中...</div>}
-              
-              {/* 🟢 视图逻辑：文件夹视图 */}
-              {!loading && viewMode === 'folder' && options.categories.map(cat => (
-                <div key={cat} onClick={() => {setSelectedFolder(cat); setViewMode('covered');}} className="card-folder btn-interactive">
-                  <Icons.FolderIcon />
-                  <div style={{fontWeight:'bold', fontSize:'14px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{cat}</div>
-                </div>
-              ))}
+            {loading && !previewPost && <p style={{textAlign:'center', color:'#666'}}>📡 正在载入...</p>}
 
-              {/* 🔵 内容列表渲染 */}
-              {!loading && viewMode !== 'folder' && filteredPosts.map(p => (
-                viewMode === 'covered' ? (
-                  <div key={p.id} onClick={() => handleEdit(p)} className="card-covered">
-                    <div style={{width:'160px', flexShrink:0, background:'#303030', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                      {p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} alt="" /> : <div style={{fontSize:'28px', fontWeight:'900', color:'#444'}}>{activeTab.charAt(0)}</div>}
+            <div style={viewMode === 'gallery' ? {display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'15px'} : {}}>
+              {filteredPosts.map(p => (
+                <div key={p.id} onClick={() => handlePreview(p)} className={viewMode === 'covered' ? "card-container" : viewMode === 'text' ? "card-text" : "card-gallery"}>
+                  {viewMode === 'covered' && (
+                    <>
+                      <div style={{width:'160px', flexShrink:0, background:'#18181c', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden'}}>
+                        {p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{fontSize:'28px', color:'#333'}}>{activeTab[0]}</div>}
+                      </div>
+                      <div style={{padding: '20px 30px', flex:1}}>
+                        <div style={{fontWeight:'bold', fontSize:'20px', color:'#fff', marginBottom:'8px'}}>{p.title}</div>
+                        <div style={{color:'#ffffff', fontSize:'12px', opacity: 0.8}}>{p.category} · {p.date}</div>
+                      </div>
+                    </>
+                  )}
+                  {viewMode === 'text' && (
+                    <div style={{flex:1, display:'flex', alignItems:'center'}}>
+                      <div style={{flex:1, fontSize:'14px', fontWeight:'500', color:'#fff'}}>{p.title}</div>
+                      <div style={{fontSize:'12px', color:'#666', marginRight:'20px'}}>{p.category}</div>
+                      <div style={{fontSize:'12px', color:'#444'}}>{p.date}</div>
                     </div>
-                    {/* 🟢 优化 1：文字位置比例调整 */}
-                    <div className="card-info" style={{padding: '20px 35px', display:'flex', flexDirection:'column', justifyContent:'flex-start'}}>
-                      <div style={{fontWeight:'bold', fontSize:'20px', color:'#fff', marginBottom:'12px', lineHeight:'1.3'}}>{p.title}</div>
-                      <div style={{color:'#ffffff', fontSize:'12px', opacity: 0.8}}>{p.category} · {p.date}</div>
-                    </div>
-                    <div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())} }} className="delete-btn">删除</div>
+                  )}
+                  {viewMode === 'gallery' && (
+                    <>
+                      <div style={{height:'140px', background:'#18181c', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                        {p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{fontSize:'40px', color:'#333'}}>{activeTab[0]}</div>}
+                      </div>
+                      <div style={{padding:'15px'}}><div style={{fontSize:'14px', fontWeight:'bold', marginBottom:'6px', color:'#fff'}}>{p.title}</div><div style={{fontSize:'11px', color:'#888'}}>{p.category}</div></div>
+                    </>
+                  )}
+                  
+                  {/* 🟢 双按钮侧滑抽屉 */}
+                  <div className="drawer-zone">
+                    <div onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="drawer-btn edit-btn"><Icons.Edit /></div>
+                    <div onClick={(e) => { e.stopPropagation(); if(confirm('删除吗？')){fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())} }} className="drawer-btn del-btn"><Icons.Trash /></div>
                   </div>
-                ) : viewMode === 'text' ? (
-                  <div key={p.id} onClick={() => handleEdit(p)} className="card-text">
-                    <div style={{flex:1, fontSize:'14px', fontWeight:'500', color:'#fff'}}>{p.title}</div>
-                    <div style={{fontSize:'12px', color:'#ffffff', opacity: 0.9, marginRight:'20px'}}>{p.category}</div>
-                    <div style={{fontSize:'12px', color:'#ffffff', opacity: 0.8}}>{p.date}</div>
-                    <div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())} }} className="delete-btn" style={{height:'100%', width:'60px', right:'-60px'}}>×</div>
-                  </div>
-                ) : (
-                  <div key={p.id} onClick={() => handleEdit(p)} className="card-gallery">
-                    <div style={{height:'140px', background:'#303030', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                      {p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} alt="" /> : <div style={{fontSize:'40px', fontWeight:'900', color:'#424242'}}>{activeTab.charAt(0)}</div>}
-                    </div>
-                    <div style={{padding:'15px'}}>
-                      <div style={{fontSize:'14px', fontWeight:'bold', marginBottom:'6px', color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.title}</div>
-                      <div style={{fontSize:'11px', color:'#ffffff', opacity: 0.8}}>{p.category} · {p.date}</div>
-                    </div>
-                  </div>
-                )
+                </div>
               ))}
             </div>
           </main>
         ) : (
-          <main style={{ background: '#424242', padding: '30px', borderRadius: '20px', border: '1px solid #555' }}>
-            {/* 🟢 优化 3：亮白色标题 */}
-            <div style={{marginBottom:'20px'}}><label style={{display:'block', fontSize:'11px', color:'#fff', marginBottom:'10px', fontWeight:'bold', textTransform:'uppercase', letterSpacing:'1.5px'}}>标题 <span className="required-star">*</span></label><input value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
+          <main style={{ background: '#202024', padding: '30px', borderRadius: '20px', border: '1px solid #333' }}>
+            <div style={{marginBottom:'20px'}}><label style={{display:'block', fontSize:'11px', color:'#fff', marginBottom:'10px', fontWeight:'bold'}}>标题 *</label><input value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'20px'}}>
-                <div><label style={{display:'block', fontSize:'11px', color:'#fff', marginBottom:'10px', fontWeight:'bold', textTransform:'uppercase', letterSpacing:'1.5px'}}>分类 <span className="required-star">*</span></label><input list="cats" value={form.category} onChange={e => setForm({...form, category: e.target.value})} /><datalist id="cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist></div>
-                <div><label style={css.labelWhite}>发布日期 <span className="required-star">*</span></label><input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
+                <div><label style={{display:'block', fontSize:'11px', color:'#fff', marginBottom:'10px', fontWeight:'bold'}}>分类 *</label><input list="cats" value={form.category} onChange={e => setForm({...form, category: e.target.value})} /><datalist id="cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist></div>
+                <div><label style={{display:'block', fontSize:'11px', color:'#fff', marginBottom:'10px', fontWeight:'bold'}}>日期 *</label><input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
             </div>
-            <div style={{marginBottom:'20px'}}><label style={css.labelWhite}>标签</label><input value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>deleteTagOption(e,t)}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'#007aff', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
-            <div style={{marginBottom:'20px'}}><label style={css.labelWhite}>封面图 (Cover)</label><input value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} /></div>
-            <div style={{marginBottom:'30px'}}><label style={css.labelWhite}>摘要 (Excerpt)</label><input value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} /></div>
+            <div style={{marginBottom:'20px'}}><label style={{display:'block', fontSize:'11px', color:'#fff', marginBottom:'10px', fontWeight:'bold'}}>标签</label><input value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} /></div>
+            <div style={{marginBottom:'20px'}}><label style={{display:'block', fontSize:'11px', color:'#fff', marginBottom:'10px', fontWeight:'bold'}}>封面 URL</label><input value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} /></div>
+            <div style={{marginBottom:'30px'}}><label style={{display:'block', fontSize:'11px', color:'#fff', marginBottom:'10px', fontWeight:'bold'}}>摘要</label><input value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} /></div>
 
-            {/* 🟢 优化 2：强化外链工具布局 */}
-            <div style={{background:'#303030', padding:'20px', borderRadius:'15px', marginBottom:'30px', border:'1px solid #555'}}>
-              <button onClick={() => window.open(CLOUDREVE_URL)} style={{width:'100%', padding:'12px', background:'#424242', color:'#fff', border:'1px solid #555', borderRadius:'8px', cursor:'pointer', fontWeight:'bold', fontSize:'14px', marginBottom:'20px'}} className="btn-interactive">🎬 打开网盘获取素材</button>
-              <div style={{fontSize:'11px', color:'#888', fontWeight:'bold', marginBottom:'8px'}}>外链转换</div>
-              {/* 🟢 优化 2：输入区域增大 */}
-              <textarea style={{height:'120px', background:'#222', fontSize:'13px'}} placeholder="粘贴原始内容..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} />
-              <button onClick={()=>{const lines=rawLinks.split('\n'); const final=[]; for(let i=0; i<lines.length; i++){const m=lines[i].match(/https?:\/\/[^\s]+/); if(m) final.push(`![](${m[0]})`);} setMdLinks(final.join('\n'))}} style={{width:'100%', padding:'12px', background:'#007aff', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', marginTop:'10px', fontWeight:'bold'}} className="btn-interactive">立即转换</button>
-              {/* 🟢 优化 2：转换结果显示区域 */}
-              {mdLinks && (
-                <div style={{marginTop:'15px', animation:'fadeIn 0.3s'}}>
-                  <pre style={{background:'#000', padding:'12px', color:'#888', fontSize:'11px', whiteSpace:'pre-wrap', maxHeight:'200px', overflowY:'auto', border:'1px solid #222', borderRadius:'8px'}}>{mdLinks}</pre>
-                  <button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={{width:'100%', padding:'12px', background:'#555', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', marginTop:'10px'}} className="btn-interactive">复制全部结果</button>
-                </div>
-              )}
+            {/* 外链工具 */}
+            <div style={{background:'#18181c', padding:'20px', borderRadius:'15px', marginBottom:'30px', border:'1px solid #333'}}>
+              <button onClick={() => window.open("https://x1file.top/home")} style={{width:'100%', padding:'12px', background:'#333', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'bold', marginBottom:'15px'}}>🎬 打开网盘获取素材</button>
+              <textarea style={{height:'80px', background:'#222'}} placeholder="粘贴直链转换..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} />
+              <button onClick={()=>{const lines=rawLinks.split('\n'); const final=[]; for(let i=0; i<lines.length; i++){const m=lines[i].match(/https?:\/\/[^\s]+/); if(m) final.push(`![](${m[0]})`);} setMdLinks(final.join('\n'))}} style={{width:'100%', padding:'12px', background:'#007aff', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', marginTop:'10px', fontWeight:'bold'}}>立即转换</button>
+              {mdLinks && <button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={{width:'100%', padding:'12px', background:'#555', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', marginTop:'10px'}}>复制全部结果</button>}
             </div>
 
-            <div style={{background:'#303030', padding:'10px', borderRadius:'8px 8px 0 0', display:'flex', gap:'10px', border:'1px solid #555', borderBottom:'none'}}>
-                <button style={css.toolBtn} onClick={()=>insertText('# ', '')}>H1</button>
-                <button style={css.toolBtn} onClick={()=>insertText('**', '**')}>B</button>
-                <button style={css.toolBtn} onClick={()=>insertText('[', '](url)')}>Link</button>
-                <button style={{...css.toolBtn, background:'#007aff', borderColor:'#007aff'}} onClick={()=>insertText(':::lock 123\n', '\n:::')}>🔒 插入加密块</button>
+            <div style={{background:'#18181c', padding:'10px', borderRadius:'8px 8px 0 0', display:'flex', gap:'10px', border:'1px solid #333', borderBottom:'none'}}>
+                <button style={{background:'#333', color:'#fff', border:'1px solid #444', padding:'6px 12px', borderRadius:'4px'}} onClick={()=>insertText('# ', '')}>H1</button>
+                <button style={{background:'#333', color:'#fff', border:'1px solid #444', padding:'6px 12px', borderRadius:'4px'}} onClick={()=>insertText('**', '**')}>B</button>
+                <button style={{background:'#007aff', color:'#fff', border:'none', padding:'6px 12px', borderRadius:'4px'}} onClick={()=>insertText(':::lock 123\n', '\n:::')}>🔒 插入加密块</button>
             </div>
-            <textarea ref={textAreaRef} style={{height:'500px', borderRadius:'0 0 10px 10px'}} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="在这里写正文..." />
+            <textarea ref={textAreaRef} style={{height:'500px', borderRadius:'0 0 10px 10px', background:'#18181c'}} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="在这里写正文..." />
 
-            <button onClick={() => { setLoading(true); fetch('/api/post', { method: 'POST', body: JSON.stringify({ ...form, id: currentId }) }).then(() => { setView('list'); fetchPosts(); }) }} disabled={loading || !isFormValid} style={{width:'100%', padding:'20px', background: !isFormValid ? '#222' : '#fff', color: !isFormValid ? '#666' : '#000', border:'none', borderRadius:'12px', fontWeight:'bold', fontSize:'16px', marginTop:'40px', cursor: isFormValid ? 'pointer' : 'not-allowed'}} className="btn-interactive">
+            <button onClick={() => { setLoading(true); fetch('/api/post', { method: 'POST', body: JSON.stringify({ ...form, id: currentId }) }).then(() => { setView('list'); fetchPosts(); }) }} disabled={loading || !isFormValid} style={{width:'100%', padding:'20px', background: !isFormValid ? '#222' : '#fff', color: !isFormValid ? '#666' : '#000', border:'none', borderRadius:'12px', fontWeight:'bold', fontSize:'16px', marginTop:'40px', cursor: isFormValid ? 'pointer' : 'not-allowed'}}>
                 {loading ? '正在同步至全球边缘节点...' : '确认发布'}
             </button>
           </main>
+        )}
+
+        {/* 🟢 预览浮层组件 */}
+        {previewPost && (
+          <div className="modal-overlay" onClick={() => setPreviewPost(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <div style={{fontWeight:'900', fontSize:'18px'}}>预览: {previewPost.title}</div>
+                <button onClick={() => setPreviewPost(null)} style={{background:'none', border:'none', color:'#666', fontSize:'24px', cursor:'pointer'}}>×</button>
+              </div>
+              <div className="modal-body">
+                {previewPost.cover && <img src={previewPost.cover} style={{width:'100%', borderRadius:'12px', marginBottom:'20px'}} />}
+                <div style={{fontSize:'12px', color:'#007aff', marginBottom:'10px'}}>{previewPost.category} · {previewPost.date}</div>
+                <div style={{fontSize:'13px', color:'#888', marginBottom:'30px', paddingBottom:'20px', borderBottom:'1px solid #333'}}>{previewPost.excerpt}</div>
+                <NotionPreview blocks={previewPost.rawBlocks} />
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
   );
 }
-
-const css = {
-  labelWhite: { display: 'block', fontSize: '10px', color: '#fff', marginBottom: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1.5px' },
-  toolBtn: { background: '#424242', color: '#fff', border: '1px solid #555', padding: '6px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', flex: 1 },
-};
