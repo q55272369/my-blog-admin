@@ -6,7 +6,6 @@ export const runtime = 'edge';
 const notion = new Client({ auth: process.env.NOTION_KEY });
 const n2m = new NotionToMarkdown({ notionClient: notion });
 
-// MD转积木逻辑（保持 4.9 版本完全一致）
 function mdToBlocks(markdown) {
   const lines = markdown.split('\n');
   const blocks = [];
@@ -15,7 +14,11 @@ function mdToBlocks(markdown) {
     const trimmed = line.trim();
     if (trimmed.startsWith(':::lock')) { isLocking = true; lockPassword = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123'; lockContent = []; continue; }
     if (isLocking && trimmed === ':::') {
-      blocks.push({ object: 'block', type: 'callout', callout: { rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }], icon: { type: "emoji", emoji: "🔒" }, color: "gray_background", children: [ { object: 'block', type: 'divider', divider: {} }, ...lockContent.map(cl => ({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: cl || " " } }] } })) ] } });
+      blocks.push({ object: 'block', type: 'callout', callout: { rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }], icon: { type: "emoji", emoji: "🔒" }, color: "gray_background", children: [ { object: 'block', type: 'divider', divider: {} }, ...lockContent.map(cl => {
+        const imgMatch = cl.trim().match(/!\[.*\]\((.*)\)/);
+        if (imgMatch) return { object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } };
+        return { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: cl || " " } }] } };
+      }) ] } });
       isLocking = false; continue;
     }
     if (isLocking) { lockContent.push(line); continue; }
@@ -34,9 +37,8 @@ export async function GET(request) {
     const page = await notion.pages.retrieve({ page_id: id });
     const mdblocks = await n2m.pageToMarkdown(id);
     
-    // 🟢 关键新增：获取原始积木用于预览渲染
+    // 🟢 关键：获取原始 blocks 用于前端预览渲染
     const blocksResponse = await notion.blocks.children.list({ block_id: id });
-    const rawBlocks = blocksResponse.results;
 
     mdblocks.forEach(b => {
       if (b.type === 'callout' && b.parent.includes('LOCK:')) {
@@ -59,8 +61,9 @@ export async function GET(request) {
         cover: p.cover?.url || '',
         status: p.status?.status?.name || 'Published',
         date: p.date?.date?.start || '',
+        type: p.type?.select?.name || 'Post',
         content: mdString.parent,
-        rawBlocks: rawBlocks // 🟢 返回给前端预览
+        rawBlocks: blocksResponse.results // 🟢 传给前端预览
       }
     });
   } catch (error) { return NextResponse.json({ success: false }); }
