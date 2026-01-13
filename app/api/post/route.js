@@ -15,41 +15,59 @@ function mdToBlocks(markdown) {
 
   for (let line of lines) {
     const trimmed = line.trim();
+
+    // 1. 进入加密逻辑
     if (trimmed.startsWith(':::lock')) {
       isLocking = true;
       lockPassword = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
       lockContent = [];
       continue;
     }
+
+    // 2. 结束加密逻辑并构建嵌套积木
     if (isLocking && trimmed === ':::') {
       blocks.push({
-        object: 'block', type: 'callout',
+        object: 'block',
+        type: 'callout',
         callout: {
           rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }],
           icon: { type: "emoji", emoji: "🔒" },
           color: "gray_background",
+          // 🟢 核心修正：在加密块子节点中识别图片积木
           children: [
             { object: 'block', type: 'divider', divider: {} },
-            ...lockContent.map(contentLine => ({
-              object: 'block', type: 'paragraph',
-              paragraph: { rich_text: [{ text: { content: contentLine || " " } }] }
-            }))
+            ...lockContent.map(contentLine => {
+              const imgMatch = contentLine.trim().match(/!\[.*\]\((.*)\)/);
+              if (imgMatch) {
+                // 如果是图片语法，生成原生 Image 积木实现嵌入
+                return { object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } };
+              }
+              return { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: contentLine || " " } }] } };
+            })
           ]
         }
       });
       isLocking = false;
       continue;
     }
-    if (isLocking) { lockContent.push(line); continue; }
+
+    if (isLocking) {
+      lockContent.push(line);
+      continue;
+    }
+
+    // 3. 普通区域处理
     if (!trimmed) {
       blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } });
       continue;
     }
+
     const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
     if (imgMatch) {
       blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } });
       continue;
     }
+
     if (trimmed.startsWith('# ')) {
       blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } });
     } else {
@@ -94,7 +112,6 @@ export async function GET(request) {
         cover: p.cover?.url || '',
         status: p.status?.status?.name || 'Published',
         date: p.date?.date?.start || '',
-        type: p.type?.select?.name || 'Post', // 🟢 确保传回类型
         content: mdString.parent
       }
     });
@@ -107,7 +124,6 @@ export async function POST(request) {
     const { id, title, content, slug, excerpt, category, tags, cover, status, date, type } = body;
     const dbId = process.env.NOTION_DATABASE_ID;
     const newBlocks = mdToBlocks(content);
-    
     const props = {
       "title": { title: [{ text: { content: title } }] },
       "slug": { rich_text: [{ text: { content: slug } }] },
@@ -117,11 +133,9 @@ export async function POST(request) {
       "status": { status: { name: status } },
       "date": date ? { date: { start: date } } : null,
       "update_date": { date: { start: new Date().toISOString() } },
-      // 🟢 核心修正：使用变量 type 而不是写死 "Post"
-      "type": { select: { name: type || "Post" } } 
+      "type": { select: { name: type || "Post" } }
     };
     if (cover) props["cover"] = { url: cover };
-
     if (id) {
       await notion.pages.update({ page_id: id, properties: props });
       const children = await notion.blocks.children.list({ block_id: id });
