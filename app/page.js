@@ -19,9 +19,6 @@ export default function Home() {
   const textAreaRef = useRef(null);
   const isFormValid = form.title.trim() !== '' && form.category.trim() !== '' && form.date !== '';
 
-  const LSKY_URL = "https://x1file.top/dashboard"; 
-  const CLOUDREVE_URL = "https://x1file.top/home"; 
-
   useEffect(() => {
     setMounted(true); fetchPosts();
     const style = document.head.appendChild(document.createElement('style'));
@@ -57,17 +54,14 @@ export default function Home() {
   }
 
   const deleteTagOption = async (e, tagName) => {
-    e.stopPropagation();
-    if(!confirm(`确定移除标签 "${tagName}" 吗？`)) return;
+    e.stopPropagation(); if(!confirm(`确定移除标签 "${tagName}" 吗？`)) return;
     setLoading(true);
     const res = await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' });
-    if((await res.json()).success) { fetchPosts(); }
-    else { alert('删除失败'); setLoading(false); }
+    if((await res.json()).success) { fetchPosts(); } else { alert('删除失败'); setLoading(false); }
   };
 
   const insertText = (before, after = '') => {
-    const el = textAreaRef.current;
-    if (!el) return;
+    const el = textAreaRef.current; if (!el) return;
     const start = el.selectionStart, end = el.selectionEnd, val = el.value;
     const newText = val.substring(0, start) + before + val.substring(start, end) + after + val.substring(end);
     setForm({ ...form, content: newText });
@@ -125,15 +119,15 @@ export default function Home() {
                 <div><label style={css.label}>分类 <span className="required-star">*</span></label><input list="cats" autoComplete="off" value={form.category} onChange={e => setForm({...form, category: e.target.value})} /><datalist id="cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist></div>
                 <div><label style={css.label}>发布日期 <span className="required-star">*</span></label><input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
             </div>
-            <div style={{marginBottom:'20px'}}><label style={css.label}>标签 (点选已有，悬停移除)</label><input value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} placeholder="逗号隔开..." /><div style={{marginTop:'8px', display:'flex', flexWrap:'wrap', alignItems:'center'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>deleteTagOption(e,t)}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'#007aff', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `... (${options.tags.length - 12})`}</span>}</div></div>
+            <div style={{marginBottom:'20px'}}><label style={css.label}>标签 (点选快捷添加)</label><input value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} placeholder="逗号隔开..." /><div style={{marginTop:'8px', display:'flex', flexWrap:'wrap', alignItems:'center'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>deleteTagOption(e,t)}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'#007aff', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `... (${options.tags.length - 12})`}</span>}</div></div>
             <div style={{marginBottom:'20px'}}><label style={css.label}>封面图 URL</label><input value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} /></div>
             <div style={{marginBottom:'30px'}}><label style={css.label}>摘要 (EXCERPT)</label><input value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} /></div>
 
-            {/* 素材转换器 - 🟢 修正：使用单换行 join('\n') */}
+            {/* 素材转换器 - 🟢 修正：使用单换行垂直无缝排列 */}
             <div style={{background:'#18181c', padding:'20px', borderRadius:'12px', border:'1px solid #333', marginBottom:'30px'}}>
               <div style={{display:'flex', gap:'10px', marginBottom:'15px'}}><button onClick={() => window.open(LSKY_URL)} className="toolbar-btn" style={{flex:1}}>🖼️ 打开图床</button><button onClick={() => window.open(CLOUDREVE_URL)} className="toolbar-btn" style={{flex:1}}>🎬 打开网盘</button></div>
               <div style={{fontSize:'11px', color:'#666', fontWeight:'bold', marginBottom:'8px'}}>外链转换</div>
-              <textarea style={{height:'80px', fontSize:'12px', background:'#121212', border:'1px solid #444'}} placeholder="直接粘贴原始内容..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} />
+              <textarea style={{height:'80px', fontSize:'12px', background:'#121212', border:'1px solid #444'}} placeholder="在此粘贴原始内容..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} />
               <button onClick={()=>{const lines=rawLinks.split('\n'); const final=[]; for(let i=0; i<lines.length; i++){const m=lines[i].match(/https?:\/\/[^\s]+/); if(m) final.push(`![](${m[0]})`);} setMdLinks(final.join('\n'))}} style={{width:'100%', padding:'10px', background:'#007aff', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', marginTop:'10px', fontWeight:'bold'}}>立即转换</button>
               {mdLinks && <div style={{marginTop:'20px', paddingTop:'15px', borderTop:'1px solid #222'}}><pre style={{background:'#000', padding:'15px', color:'#888', fontSize:'11px', whiteSpace:'pre-wrap', maxHeight:'200px', overflowY:'auto', border:'1px solid #222', borderRadius:'8px'}}>{mdLinks}</pre><button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已全部复制')}} style={{width:'100%', padding:'12px', background:'#333', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', marginTop:'10px', fontWeight:'bold', fontSize:'13px'}}>复制全部内容</button></div>}
             </div>
