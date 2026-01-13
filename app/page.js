@@ -36,11 +36,11 @@ export default function Home() {
     const style = document.head.appendChild(document.createElement('style'));
     style.innerHTML = `
       body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
-      .card-covered { background: #424242; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden; display: flex; align-items: stretch; min-height: 100px; border: 1px solid transparent; }
+      .card-covered { background: #424242; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; display: flex; align-items: stretch; min-height: 100px; border: 1px solid transparent; }
       .card-covered:hover { background: #4d4d4d; border-color: #555; transform: translateY(-2px); }
       .card-text { background: #424242; border-bottom: 1px solid #333; padding: 14px 20px; cursor: pointer; transition: 0.1s; display: flex; align-items: center; }
       .card-text:hover { background: #4d4d4d; }
-      .card-gallery { background: #424242; border-radius: 12px; overflow: hidden; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; border: 1px solid transparent; }
+      .card-gallery { background: #424242; border-radius: 12px; overflow: hidden; cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; border: 1px solid transparent; }
       .card-gallery:hover { border-color: #007aff; transform: translateY(-4px); }
       .delete-btn { position: absolute; right: -80px; top: 0; bottom: 0; width: 80px; background: #ff4d4f; color: #fff; display: flex; align-items: center; justify-content: center; transition: 0.3s; font-weight: bold; z-index: 10; }
       .card-covered:hover .delete-btn, .card-text:hover .delete-btn { right: 0; }
@@ -53,9 +53,12 @@ export default function Home() {
       .icon-btn { background: #424242; border: 1px solid #555; color: #bbb; cursor: pointer; border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
       .icon-btn:hover { color: #fff; border-color: #007aff; background: #4d4d4d; }
       .icon-btn.active { color: #fff; border-color: #007aff; background: #007aff; }
-      .btn-click:active { transform: scale(0.95); }
-      /* 🟢 修正红星颜色 */
       .required-star { color: #ff4d4f !important; margin-left: 4px; font-weight: bold; }
+      
+      /* 🟢 物理响应式动效 */
+      .btn-interactive { transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s; }
+      .btn-interactive:hover { transform: scale(1.02); filter: brightness(1.15); }
+      .btn-interactive:active { transform: scale(0.98); filter: brightness(0.9); }
     `;
   }, []);
 
@@ -104,11 +107,11 @@ export default function Home() {
           <div style={{ display: 'flex', gap: '10px' }}>
             {view === 'list' && (
               <>
-                <button onClick={() => setIsSearchOpen(!isSearchOpen)} className={`icon-btn btn-click ${isSearchOpen ? 'active' : ''}`}><Icons.Search /></button>
-                <button onClick={() => { setForm({ title: '', slug: 'p-' + Date.now().toString(36), excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: activeTab, date: new Date().toISOString().split('T')[0] }); setCurrentId(null); setView('edit'); }} style={{ padding: '0 25px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }} className="btn-click">发布新内容</button>
+                <button onClick={() => setIsSearchOpen(!isSearchOpen)} className={`icon-btn btn-interactive ${isSearchOpen ? 'active' : ''}`}><Icons.Search /></button>
+                <button onClick={() => { setForm({ title: '', slug: 'p-' + Date.now().toString(36), excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: activeTab, date: new Date().toISOString().split('T')[0] }); setCurrentId(null); setView('edit'); }} style={{ padding: '0 25px', background: '#007aff', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }} className="btn-interactive">发布新内容</button>
               </>
             )}
-            {view === 'edit' && <button onClick={() => setView('list')} style={{ padding: '8px 25px', background: '#424242', color: '#fff', border: '1px solid #555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }} className="btn-click">返回</button>}
+            {view === 'edit' && <button onClick={() => setView('list')} style={{ padding: '8px 25px', background: '#424242', color: '#fff', border: '1px solid #555', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }} className="btn-interactive">返回</button>}
           </div>
         </header>
 
@@ -127,9 +130,9 @@ export default function Home() {
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '12px', paddingRight: '4px' }}>
-                <button onClick={() => setViewMode('covered')} className={`icon-btn btn-click ${viewMode === 'covered' ? 'active' : ''}`} style={{width:'34px', height:'34px'}}><Icons.CoverMode /></button>
-                <button onClick={() => setViewMode('text')} className={`icon-btn btn-click ${viewMode === 'text' ? 'active' : ''}`} style={{width:'34px', height:'34px'}}><Icons.TextMode /></button>
-                <button onClick={() => setViewMode('gallery')} className={`icon-btn btn-click ${viewMode === 'gallery' ? 'active' : ''}`} style={{width:'34px', height:'34px'}}><Icons.GridMode /></button>
+                <button onClick={() => setViewMode('covered')} className={`icon-btn btn-interactive ${viewMode === 'covered' ? 'active' : ''}`} style={{width:'34px', height:'34px'}}><Icons.CoverMode /></button>
+                <button onClick={() => setViewMode('text')} className={`icon-btn btn-interactive ${viewMode === 'text' ? 'active' : ''}`} style={{width:'34px', height:'34px'}}><Icons.TextMode /></button>
+                <button onClick={() => setViewMode('gallery')} className={`icon-btn btn-interactive ${viewMode === 'gallery' ? 'active' : ''}`} style={{width:'34px', height:'34px'}}><Icons.GridMode /></button>
             </div>
 
             <div style={viewMode === 'gallery' ? {display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'15px'} : {}}>
@@ -140,9 +143,9 @@ export default function Home() {
                     <div style={{width:'140px', flexShrink:0, background:'#303030', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center'}}>
                       {p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} alt="" /> : <div style={{fontSize:'24px', fontWeight:'900', color:'#444'}}>{activeTab.charAt(0)}</div>}
                     </div>
-                    <div className="card-info">
-                      <div style={{fontWeight:'bold', fontSize:'17px', color:'#fff', marginBottom:'6px'}}>{p.title}</div>
-                      {/* 🟢 优化 1：分类和日期使用纯白色提示文字 */}
+                    {/* 🟢 优化 1：调整文字区域内边距，使其不紧贴图片 */}
+                    <div className="card-info" style={{paddingLeft: '35px'}}>
+                      <div style={{fontWeight:'bold', fontSize:'18px', color:'#fff', marginBottom:'8px'}}>{p.title}</div>
                       <div style={{color:'#ffffff', fontSize:'12px', opacity: 0.9}}>{p.category} · {p.date}</div>
                     </div>
                     <div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())} }} className="delete-btn">删除</div>
@@ -150,7 +153,6 @@ export default function Home() {
                 ) : viewMode === 'text' ? (
                   <div key={p.id} onClick={() => handleEdit(p)} className="card-text">
                     <div style={{flex:1, fontSize:'14px', fontWeight:'500', color:'#fff'}}>{p.title}</div>
-                    {/* 🟢 优化 1：分类和日期使用纯白色提示文字 */}
                     <div style={{fontSize:'12px', color:'#ffffff', opacity: 0.9, marginRight:'20px'}}>{p.category}</div>
                     <div style={{fontSize:'12px', color:'#ffffff', opacity: 0.8}}>{p.date}</div>
                     <div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())} }} className="delete-btn" style={{height:'100%', width:'60px', right:'-60px'}}>×</div>
@@ -162,8 +164,8 @@ export default function Home() {
                     </div>
                     <div style={{padding:'15px'}}>
                       <div style={{fontSize:'14px', fontWeight:'bold', marginBottom:'6px', color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.title}</div>
-                      {/* 🟢 优化 1：分类使用纯白色显示 */}
-                      <div style={{fontSize:'11px', color:'#ffffff', opacity: 0.9}}>{p.category}</div>
+                      {/* 🟢 优化 2：画廊视图显示时间 */}
+                      <div style={{fontSize:'11px', color:'#ffffff', opacity: 0.9}}>{p.category} · {p.date}</div>
                     </div>
                   </div>
                 )
@@ -172,24 +174,25 @@ export default function Home() {
           </main>
         ) : (
           <main style={{ background: '#424242', padding: '30px', borderRadius: '20px', border: '1px solid #555' }}>
-            <div style={{marginBottom:'20px'}}><label style={css.label}>标题 <span className="required-star">*</span></label><input value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
+            {/* 🟢 优化 3：编辑界面标题使用亮白色 */}
+            <div style={{marginBottom:'20px'}}><label style={css.labelWhite}>标题 <span className="required-star">*</span></label><input value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'20px'}}>
-                {/* 🟢 优化 2：必填星号标红显示 */}
-                <div><label style={css.label}>分类 <span className="required-star">*</span></label><input list="cats" value={form.category} onChange={e => setForm({...form, category: e.target.value})} /><datalist id="cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist></div>
-                <div><label style={css.label}>发布日期 <span className="required-star">*</span></label><input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
+                <div><label style={css.labelWhite}>分类 <span className="required-star">*</span></label><input list="cats" value={form.category} onChange={e => setForm({...form, category: e.target.value})} /><datalist id="cats">{options.categories.map(o => <option key={o} value={o} />)}</datalist></div>
+                <div><label style={css.labelWhite}>发布日期 <span className="required-star">*</span></label><input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
             </div>
-            <div style={{marginBottom:'20px'}}><label style={css.label}>标签</label><input value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>deleteTagOption(e,t)}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'#007aff', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
-            <div style={{marginBottom:'20px'}}><label style={css.label}>封面图 (Cover)</label><input value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} /></div>
-            <div style={{marginBottom:'30px'}}><label style={css.label}>摘要 (Excerpt)</label><input value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} /></div>
+            <div style={{marginBottom:'20px'}}><label style={css.labelWhite}>标签</label><input value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>deleteTagOption(e,t)}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'#007aff', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
+            <div style={{marginBottom:'20px'}}><label style={css.labelWhite}>封面图 (Cover)</label><input value={form.cover} onChange={e => setForm({...form, cover: e.target.value})} /></div>
+            <div style={{marginBottom:'30px'}}><label style={css.labelWhite}>摘要 (Excerpt)</label><input value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} /></div>
 
-            {/* 🟢 优化 3：重构素材工具箱，仅保留网盘大按钮 */}
+            {/* 🟢 优化 4：网盘按钮响应体验 */}
             <div style={{background:'#303030', padding:'20px', borderRadius:'15px', marginBottom:'30px', border:'1px solid #555'}}>
-              <button onClick={() => window.open(CLOUDREVE_URL)} style={{width:'100%', padding:'12px', background:'#424242', color:'#fff', border:'1px solid #555', borderRadius:'8px', cursor:'pointer', fontWeight:'bold', fontSize:'14px', marginBottom:'20px'}} className="btn-click">🎬 打开网盘获取素材</button>
+              <button onClick={() => window.open(CLOUDREVE_URL)} style={{width:'100%', padding:'12px', background:'#424242', color:'#fff', border:'1px solid #555', borderRadius:'8px', cursor:'pointer', fontWeight:'bold', fontSize:'14px', marginBottom:'20px'}} className="btn-interactive">🎬 打开网盘获取素材</button>
               
               <div style={{fontSize:'11px', color:'#888', fontWeight:'bold', marginBottom:'8px'}}>外链转换</div>
               <textarea style={{height:'60px', background:'#222'}} placeholder="粘贴原始内容..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} />
-              <button onClick={()=>{const lines=rawLinks.split('\n'); const final=[]; for(let i=0; i<lines.length; i++){const m=lines[i].match(/https?:\/\/[^\s]+/); if(m) final.push(`![](${m[0]})`);} setMdLinks(final.join('\n'))}} style={{width:'100%', padding:'12px', background:'#007aff', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', marginTop:'10px', fontWeight:'bold'}} className="btn-click">立即转换</button>
-              {mdLinks && <button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={{width:'100%', padding:'10px', background:'#555', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', marginTop:'10px'}} className="btn-click">复制全部结果</button>}
+              {/* 🟢 优化 4：立即转换按钮响应体验 */}
+              <button onClick={()=>{const lines=rawLinks.split('\n'); const final=[]; for(let i=0; i<lines.length; i++){const m=lines[i].match(/https?:\/\/[^\s]+/); if(m) final.push(`![](${m[0]})`);} setMdLinks(final.join('\n'))}} style={{width:'100%', padding:'12px', background:'#007aff', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', marginTop:'10px', fontWeight:'bold'}} className="btn-interactive">立即转换</button>
+              {mdLinks && <button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={{width:'100%', padding:'10px', background:'#555', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', marginTop:'10px'}} className="btn-interactive">复制全部结果</button>}
             </div>
 
             <div style={{background:'#303030', padding:'10px', borderRadius:'8px 8px 0 0', display:'flex', gap:'10px', border:'1px solid #555', borderBottom:'none'}}>
@@ -200,7 +203,7 @@ export default function Home() {
             </div>
             <textarea ref={textAreaRef} style={{height:'500px', borderRadius:'0 0 10px 10px'}} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="在这里写正文..." />
 
-            <button onClick={() => { setLoading(true); fetch('/api/post', { method: 'POST', body: JSON.stringify({ ...form, id: currentId }) }).then(() => { setView('list'); fetchPosts(); }) }} disabled={loading || !isFormValid} style={{width:'100%', padding:'20px', background: !isFormValid ? '#222' : '#fff', color: !isFormValid ? '#666' : '#000', border:'none', borderRadius:'12px', fontWeight:'bold', fontSize:'16px', marginTop:'40px', cursor: isFormValid ? 'pointer' : 'not-allowed'}} className="btn-click">
+            <button onClick={() => { setLoading(true); fetch('/api/post', { method: 'POST', body: JSON.stringify({ ...form, id: currentId }) }).then(() => { setView('list'); fetchPosts(); }) }} disabled={loading || !isFormValid} style={{width:'100%', padding:'20px', background: !isFormValid ? '#222' : '#fff', color: !isFormValid ? '#666' : '#000', border:'none', borderRadius:'12px', fontWeight:'bold', fontSize:'16px', marginTop:'40px', cursor: isFormValid ? 'pointer' : 'not-allowed'}} className="btn-interactive">
                 {loading ? '正在同步至全球边缘节点...' : '确认发布'}
             </button>
           </main>
@@ -211,6 +214,7 @@ export default function Home() {
 }
 
 const css = {
-  label: { display: 'block', fontSize: '10px', color: '#888', marginBottom: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1.5px' },
+  // 🟢 升级：编辑界面标题使用高亮纯白
+  labelWhite: { display: 'block', fontSize: '11px', color: '#ffffff', marginBottom: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1.5px' },
   toolBtn: { background: '#424242', color: '#fff', border: '1px solid #555', padding: '6px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', flex: 1 },
 };
