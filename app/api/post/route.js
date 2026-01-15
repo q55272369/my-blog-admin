@@ -37,7 +37,15 @@ export async function GET(request) {
   try {
     const page = await notion.pages.retrieve({ page_id: id });
     const mdblocks = await n2m.pageToMarkdown(id);
-    const blocksRes = await notion.blocks.children.list({ block_id: id });
+    
+    // 🟢 关键：获取原始积木用于前端预览
+    // 使用 try-catch 包裹，防止获取 blocks 失败影响整体读取
+    let rawBlocks = [];
+    try {
+      const blocksRes = await notion.blocks.children.list({ block_id: id });
+      rawBlocks = blocksRes.results;
+    } catch (e) { console.error("Blocks error", e); }
+
     mdblocks.forEach(b => {
       if (b.type === 'callout' && b.parent.includes('LOCK:')) {
         const pwd = b.parent.match(/LOCK:([a-zA-Z0-9]+)/)?.[1] || '123';
@@ -45,6 +53,8 @@ export async function GET(request) {
         b.parent = `:::lock ${pwd}\n${body.trim()}\n:::`;
       }
     });
+
+    const mdString = n2m.toMarkdownString(mdblocks);
     const p = page.properties;
     return NextResponse.json({
       success: true,
@@ -58,8 +68,8 @@ export async function GET(request) {
         status: p.status?.status?.name || 'Published',
         date: p.date?.date?.start || '',
         type: p.type?.select?.name || 'Post',
-        content: n2m.toMarkdownString(mdblocks).parent,
-        rawBlocks: blocksRes.results
+        content: mdString.parent,
+        rawBlocks: rawBlocks // 🟢 发送给前端
       }
     });
   } catch (e) { return NextResponse.json({ success: false }); }
