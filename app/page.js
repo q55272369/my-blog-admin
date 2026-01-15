@@ -77,25 +77,8 @@ export default function Home() {
           // 🟢 图片渲染修正：增加“黑色相框”容器，强制尺寸与视频播放器一致
           return (
             <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
-              <div style={{
-                width: '100%',           // 宽度撑满，与下方视频黑框对齐
-                height: '500px',         // 高度固定 500px
-                background: '#000',      // 黑色背景，模拟视频播放器质感
-                borderRadius: '8px',     // 圆角
-                display: 'flex',         // Flex 布局
-                justifyContent: 'center',// 水平居中
-                alignItems: 'center',    // 垂直居中
-                overflow: 'hidden'       // 防止溢出
-              }}>
-                <img 
-                  src={url} 
-                  style={{
-                    maxWidth: '100%',    // 图片内容不超出容器
-                    maxHeight: '100%',   // 图片高度不超出容器
-                    objectFit: 'contain' // 保持比例显示（两边留黑）
-                  }} 
-                  alt="" 
-                />
+              <div style={{width: '100%', height: '500px', background: '#000', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}>
+                <img src={url} style={{maxWidth: '100%', maxHeight: '100%', objectFit: 'contain'}} alt="" />
               </div>
             </div>
           );
@@ -143,7 +126,27 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
 
   const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
   const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setCurrentId(p.id); setView('edit'); } }).finally(()=>setLoading(false)); };
-  const convertLinks = () => { if(!rawLinks.trim()) return; const lines = rawLinks.split('\n').filter(l => l.trim()); const final = lines.map(l => { const m = l.match(/https?:\/\/[^\s]+/); return m ? `![](${m[0]})` : ''; }).filter(Boolean); if(final.length > 0) { const res = final.join('\n'); setMdLinks(res); setRawLinks(res); } else { alert("未识别到链接"); } };
+  
+  // 🔴 修复 BUG 的关键位置：外链转换逻辑
+  const convertLinks = () => {
+    if(!rawLinks.trim()) return;
+    const lines = rawLinks.split('\n').filter(l => l.trim());
+    const final = lines.map(l => {
+      // 🟢 新正则：匹配 http 开头，直到遇到空白符 OR 闭括号 ')' OR 闭中括号 ']'
+      // 这样即使你复制了已经带括号的 Markdown 链接，正则也会在 ')' 前停下，不会把 ')' 吸进去
+      const m = l.match(/https?:\/\/[^\s)\]]+/);
+      return m ? `![](${m[0]})` : '';
+    }).filter(Boolean);
+    
+    if(final.length > 0) {
+      const result = final.join('\n');
+      setMdLinks(result); 
+      setRawLinks(result);
+    } else {
+      alert("未识别到有效链接");
+    }
+  };
+
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
   const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
