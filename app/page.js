@@ -12,16 +12,16 @@ const Icons = {
   Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
 };
 
-// 预览渲染子组件
-const NotionBlocksRenderer = ({ blocks }) => (
-  <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8'}}>
+// 预览渲染组件
+const NotionView = ({ blocks }) => (
+  <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8', maxWidth:'600px', margin:'0 auto'}}>
     {blocks?.map((b, i) => {
       const d = b[b.type], t = d?.rich_text?.[0]?.plain_text || "";
       if(b.type==='heading_1') return <h1 key={i} style={{fontSize:'1.8em', borderBottom:'1px solid #333', paddingBottom:'8px', margin:'24px 0 12px'}}>{t}</h1>;
-      if(b.type==='paragraph') return <p key={i} style={{margin:'12px 0', minHeight:'1em'}}>{t}</p>;
-      if(b.type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #444', margin:'24px 0'}} />;
-      if(b.type==='image') return <img key={i} src={d.external?.url || d.file?.url} style={{width:'100%', borderRadius:'10px', margin:'20px 0'}} />;
-      if(b.type==='callout') return <div key={i} style={{background:'#2d2d30', padding:'20px', borderRadius:'10px', border:'1px solid #3e3e42', display:'flex', gap:'15px', margin:'20px 0'}}><div style={{fontSize:'1.4em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1}}><div style={{fontWeight:'bold', color:'#007aff', marginBottom:'4px'}}>{t}</div><div style={{fontSize:'12px', opacity:0.5}}>内容已受保护</div></div></div>;
+      if(b.type==='paragraph') return <p key={i} style={{margin:'10px 0', minHeight:'1em'}}>{t}</p>;
+      if(b.type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #333', margin:'20px 0'}} />;
+      if(b.type==='image') return <img key={i} src={d.external?.url || d.file?.url} style={{width:'100%', borderRadius:'10px', margin:'15px 0'}} />;
+      if(b.type==='callout') return <div key={i} style={{background:'#2d2d30', padding:'15px', borderRadius:'10px', border:'1px solid #3e3e42', display:'flex', gap:'12px', margin:'15px 0'}}><div style={{fontSize:'1.3em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1, fontWeight:'bold', color:'#007aff'}}>{t}</div></div>;
       return null;
     })}
   </div>
@@ -31,37 +31,34 @@ export default function Home() {
   const [mounted, setMounted] = useState(false), [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [isSearchOpen, setIsSearchOpen] = useState(false), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
   const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null), [rawLinks, setRawLinks] = useState(''), [mdLinks, setMdLinks] = useState(''), textAreaRef = useRef(null);
 
+  const isFormValid = form.title.trim() !== '' && form.category.trim() !== '' && form.date !== '';
+
   useEffect(() => {
     setMounted(true); fetchPosts();
-    const s = document.createElement('style');
-    s.innerHTML = `
-      body { background-color: #303030; color: #fff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
-      /* 🟢 恢复 4.9 绝对比例 */
-      .card-item { position: relative; background: #424242; border-radius: 12px; margin-bottom: 12px; border: 1px solid transparent; cursor: pointer; transition: 0.3s; overflow: hidden; display: flex !important; flex-direction: row !important; align-items: stretch; }
-      .card-item:hover { border-color: #007aff; transform: translateY(-2px); background: #4d4d4d; }
-      
+    const style = document.head.appendChild(document.createElement('style'));
+    style.innerHTML = `
+      body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
+      .card-wrap { position: relative; background: #424242; border-radius: 12px; margin-bottom: 12px; display: flex !important; flex-direction: row !important; align-items: stretch; overflow: hidden; cursor: pointer; transition: 0.3s; border: 1px solid transparent; }
+      .card-wrap:hover { border-color: #007aff; transform: translateY(-2px); background: #4d4d4d; }
       .drawer { position: absolute; right: -120px; top: 0; bottom: 0; width: 120px; display: flex; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
-      .card-item:hover .drawer { right: 0; }
+      .card-wrap:hover .drawer { right: 0; }
       .dr-btn { flex: 1; display: flex; align-items: center; justify-content: center; color: #fff; transition: 0.2s; }
-      
       .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
       .modal-box { background: #202024; width: 90%; maxWidth: 750px; height: 80vh; border-radius: 24px; border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; }
       .modal-body { flex: 1; overflow-y: auto; padding: 40px 80px; }
-      
       .btn-ia:active { transform: scale(0.95); }
       .tag-chip { background: #333; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #bbb; margin: 0 5px 5px 0; cursor: pointer; position: relative; }
       .tag-del { position: absolute; top: -5px; right: -5px; background: #ff4d4f; color: white; border-radius: 50%; width: 14px; height: 14px; display: none; align-items: center; justify-content: center; font-size: 10px; }
       .tag-chip:hover .tag-del { display: flex; }
-      input, select, textarea { outline: none; }
     `;
-    document.head.appendChild(s);
   }, []);
 
-  async function fetchPosts() { setLoading(true); try { const r = await fetch('/api/posts'); const d = await r.json(); if (d.success) { setPosts(d.posts || []); setOptions(d.options); } } finally { setLoading(false); } }
+  async function fetchPosts() { setLoading(true); try { const r = await fetch('/api/posts'); const d = await r.json(); if (d.success) { setPosts(d.posts || []); setOptions(data.options); } } finally { setLoading(false); } }
+  
   if (!mounted) return null;
 
-  const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setCurrentId(p.id); setView('edit'); } }).finally(()=>setLoading(false)); };
   const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
+  const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setCurrentId(p.id); setView('edit'); } }).finally(()=>setLoading(false)); };
 
   const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
 
@@ -82,29 +79,33 @@ export default function Home() {
           <main>
             <div style={s.tabBox}>{['Post', 'Widget'].map(t => <button key={t} onClick={() => { setActiveTab(t); setSelectedFolder(null); }} style={activeTab === t ? s.tabOn : s.tabOff}>{t === 'Post' ? '已发布' : '组件'}</button>)}</div>
             {isSearchOpen && <input style={s.search} placeholder="搜索标题或Slug..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />}
-            <div style={s.toolbar}><button onClick={()=>setViewMode('folder')} style={viewMode==='folder'?s.iconOn:s.iconBtn}><Icons.FolderMode /></button><button onClick={()=>setViewMode('covered')} style={viewMode==='covered'?s.iconOn:s.iconBtn}><Icons.CoverMode /></button><button onClick={()=>setViewMode('text')} style={viewMode==='text'?s.iconOn:s.iconBtn}><Icons.TextMode /></button><button onClick={()=>setViewMode('gallery')} style={viewMode==='gallery'?s.iconOn:s.iconBtn}><Icons.GridMode /></button></div>
+            <div style={s.toolbar}>
+                <button onClick={() => {setViewMode('folder'); setSelectedFolder(null);}} style={viewMode==='folder'?s.iconOn:s.iconBtn}><Icons.FolderMode /></button>
+                <button onClick={() => setViewMode('covered')} style={viewMode==='covered'?s.iconOn:s.iconBtn}><Icons.CoverMode /></button>
+                <button onClick={() => setViewMode('text')} style={viewMode==='text'?s.iconOn:s.iconBtn}><Icons.TextMode /></button>
+                <button onClick={() => setViewMode('gallery')} style={viewMode==='gallery'?s.iconOn:s.iconBtn}><Icons.GridMode /></button>
+            </div>
 
             <div style={viewMode === 'gallery' || viewMode === 'folder' ? {display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'15px'} : {}}>
               {viewMode === 'folder' && options.categories.map(cat => <div key={cat} onClick={()=>{setSelectedFolder(cat); setViewMode('covered');}} style={s.folderCard} className="btn-ia"><Icons.FolderIcon />{cat}</div>)}
               {viewMode !== 'folder' && filtered.map(p => (
-                <div key={p.id} onClick={() => handlePreview(p)} className="card-item" style={viewMode === 'text' ? s.cardText : viewMode === 'gallery' ? s.cardGallery : {}}>
+                <div key={p.id} onClick={() => handlePreview(p)} className="card-wrap" style={viewMode === 'text' ? s.cardText : viewMode === 'gallery' ? s.cardGallery : {}}>
                   {viewMode === 'covered' && <>
                     <div style={s.coverWrap}>{p.cover ? <img src={p.cover} style={s.coverImg} /> : <div style={{fontSize:'28px', color:'#444'}}>{activeTab[0]}</div>}</div>
                     <div style={s.infoWrap}><div style={s.title}>{p.title}</div><div style={s.meta}>{p.category} · {p.date}</div></div>
                   </>}
-                  {viewMode === 'text' && <div style={{flex:1, display:'flex', alignItems:'center'}}><div style={{flex:1}}>{p.title}</div><div style={s.meta}>{p.category} · {p.date}</div></div>}
+                  {viewMode === 'text' && <div style={{flex:1, display:'flex', alignItems:'center'}}><div style={{flex:1, fontSize:'14px'}}>{p.title}</div><div style={{fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div>}
                   {viewMode === 'gallery' && <>
                     <div style={s.galCover}>{p.cover ? <img src={p.cover} style={s.coverImg} /> : <div style={{fontSize:'40px', color:'#444'}}>{activeTab[0]}</div>}</div>
                     <div style={{padding:'15px'}}><div style={{fontSize:'14px', fontWeight:'bold', color:'#fff'}}>{p.title}</div><div style={s.meta}>{p.category} · {p.date}</div></div>
                   </>}
-                  <div className="drawer"><div onClick={(e) => { e.stopPropagation(); handleEdit(p); }} style={{background:'#007aff'}} className="dr-btn"><Icons.Edit /></div><div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())}}} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div></div>
+                  <div className="drawer"><div onClick={(e) => { e.stopPropagation(); handleEdit(p); }} style={{background:'#007aff'}} className="dr-btn"><Icons.Edit /></div><div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())} }} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div></div>
                 </div>
               ))}
             </div>
           </main>
         ) : (
-          <main style={s.panel}>
-            <div style={{marginBottom:'20px'}}><label style={s.lab}>标题 *</label><input value={form.title} onChange={e=>setForm({...form, title:e.target.value})} /></div>
+          <main style={s.panel}><div style={{marginBottom:'20px'}}><label style={s.lab}>标题 *</label><input value={form.title} onChange={e=>setForm({...form, title:e.target.value})} /></div>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'20px'}}>
               <div><label style={s.lab}>分类 *</label><input list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} /><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
               <div><label style={s.lab}>发布日期 *</label><input type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} /></div>
@@ -112,9 +113,9 @@ export default function Home() {
             <div style={{marginBottom:'20px'}}><label style={s.lab}>标签</label><input value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); fetch('/api/tags?name='+t,{method:'DELETE'}).then(()=>fetchPosts())}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'#007aff', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
             <div style={{marginBottom:'20px'}}><label style={s.lab}>封面图 URL</label><input value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} /></div>
             <div style={{marginBottom:'30px'}}><label style={s.lab}>摘要</label><input value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} /></div>
-            <div style={s.toolBox}><button onClick={()=>window.open("https://x1file.top/home")} style={s.btnGrayF} className="btn-ia">🎬 打开网盘获取素材</button><textarea style={{height:'120px', background:'#18181c'}} placeholder="直链转换..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} /><button onClick={()=>{const lines=rawLinks.split('\n'); const final=[]; for(let i=0; i<lines.length; i++){const m=lines[i].match(/https?:\/\/[^\s]+/); if(m) final.push(`![](${m[0]})`);} setMdLinks(final.join('\n'))}} style={s.btnBlueF} className="btn-ia">立即转换</button>{mdLinks && <button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={s.btnGrayF} className="btn-ia">复制全部结果</button>}</div>
-            <div style={s.editTool}><button style={s.toolItem} onClick={()=>setForm({...form, content:form.content+'# '})}>H1</button><button style={s.toolItem} onClick={()=>setForm({...form, content:form.content+'**加粗**'})}>B</button><button style={s.eBtnBlue} onClick={()=>setForm({...form, content:form.content+':::lock 123\n\n:::'})}>🔒 插入加密块</button></div>
-            <textarea ref={textAreaRef} style={{height:'500px', borderRadius:'0 0 10px 10px', background:'#18181c', color:'#fff', padding:'15px'}} value={form.content} onChange={e=>setForm({...form, content:e.target.value})} />
+            <div style={s.tBox}><button onClick={()=>window.open("https://x1file.top/home")} style={s.btnGrayF} className="btn-ia">🎬 打开网盘获取素材</button><textarea style={{height:'120px', background:'#18181c'}} placeholder="直链转换..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} /><button onClick={()=>{const lines=rawLinks.split('\n'); const final=[]; for(let i=0; i<lines.length; i++){const m=lines[i].match(/https?:\/\/[^\s]+/); if(m) final.push(`![](${m[0]})`);} setMdLinks(final.join('\n'))}} style={s.btnBlueF} className="btn-ia">立即转换</button>{mdLinks && <button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={s.btnGrayF} className="btn-ia">复制全部结果</button>}</div>
+            <div style={s.eTool}><button style={s.toolItem} onClick={()=>setForm({...form, content:form.content+'# '})}>H1</button><button style={s.toolItem} onClick={()=>setForm({...form, content:form.content+'**加粗**'})}>B</button><button style={s.eBtnBlue} onClick={()=>setForm({...form, content:form.content+':::lock 123\n\n:::'})}>🔒 插入加密块</button></div>
+            <textarea ref={textAreaRef} style={{height:'500px', borderRadius:'0 0 10px 10px', background:'#18181c', color:'#fff', padding:'15px'}} value={form.content} onChange={e=>setForm({...form, content:e.target.value})} placeholder="在这里写正文..." />
             <button onClick={()=>{setLoading(true); fetch('/api/post',{method:'POST', body:JSON.stringify({...form, id:currentId})}).then(()=>{setView('list'); fetchPosts();})}} disabled={!isFormValid} style={isFormValid?s.btnP:s.btnD} className="btn-ia">确认发布</button>
           </main>
         )}
@@ -135,7 +136,7 @@ const s = {
   search: { width:'100%', padding:'14px', background:'#424242', border:'1px solid #007aff', borderRadius:'12px', color:'#fff', marginBottom:'20px' },
   toolbar: { display:'flex', justifyContent:'flex-end', gap:'8px', marginBottom:'15px' },
   folderCard: { padding:'15px', background:'#424242', borderRadius:'10px', display:'flex', alignItems:'center', gap:'12px', border:'1px solid #555', cursor:'pointer' },
-  cardText: { display:'flex', alignItems:'center', padding:'16px 20px', borderRadius:'0', borderBottom:'1px solid #333', background:'#424242', marginBottom:'8px', position:'relative', overflow:'hidden' },
+  cardText: { display:'flex', alignItems:'center', padding:'16px 20px', borderRadius:'12px', background:'#424242', marginBottom:'8px', position:'relative', overflow:'hidden' },
   cardGallery: { display:'flex', flexDirection:'column', height:'auto', background:'#424242', borderRadius:'12px', marginBottom:'12px', position:'relative', overflow:'hidden' },
   coverWrap: { width:'160px', flexShrink:0, background:'#303030', display:'flex', alignItems:'center', justifyContent:'center' },
   coverImg: { width:'100%', height:'100%', objectFit:'cover' },
@@ -145,10 +146,10 @@ const s = {
   galCover: { height:'140px', background:'#303030', display:'flex', alignItems:'center', justifyContent:'center' },
   panel: { background:'#424242', padding:'30px', borderRadius:'20px', border:'1px solid #555' },
   lab: { display:'block', fontSize:'11px', color:'#fff', marginBottom:'10px', fontWeight:'bold', textTransform:'uppercase' },
-  toolBox: { background:'#303030', padding:'20px', borderRadius:'15px', marginBottom:'30px', border:'1px solid #555' },
+  tBox: { background:'#303030', padding:'20px', borderRadius:'15px', marginBottom:'30px', border:'1px solid #555' },
   btnBlueF: { width:'100%', padding:'12px', background:'#007aff', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'bold', marginTop:'10px' },
   btnGrayF: { width:'100%', padding:'12px', background:'#424242', color:'#fff', border:'1px solid #555', borderRadius:'8px', cursor:'pointer', fontWeight:'bold' },
-  editTool: { background:'#303030', padding:'10px', borderRadius:'8px 8px 0 0', display:'flex', gap:'10px', border:'1px solid #555', borderBottom:'none' },
+  eTool: { background:'#303030', padding:'10px', borderRadius:'8px 8px 0 0', display:'flex', gap:'10px', border:'1px solid #555', borderBottom:'none' },
   toolItem: { background:'#424242', color:'#fff', padding:'6px 12px', border:'1px solid #555', borderRadius:'4px', cursor:'pointer' },
   eBtnBlue: { background:'#007aff', color:'#fff', padding:'6px 12px', border:'none', borderRadius:'4px', cursor:'pointer' },
   btnP: { width:'100%', padding:'20px', background:'#fff', color:'#000', border:'none', borderRadius:'12px', fontWeight:'bold', fontSize:'16px', marginTop:'40px', cursor:'pointer' },
