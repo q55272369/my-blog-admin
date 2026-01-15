@@ -6,19 +6,37 @@ export const runtime = 'edge';
 const notion = new Client({ auth: process.env.NOTION_KEY });
 const n2m = new NotionToMarkdown({ notionClient: notion });
 
+// 🛠️ MD 转 Notion 积木逻辑 (支持图片、标题、加密块)
 function mdToBlocks(markdown) {
   const lines = markdown.split('\n');
   const blocks = [];
   let isLocking = false; let lockPassword = ''; let lockContent = [];
+
   for (let line of lines) {
     const trimmed = line.trim();
-    if (trimmed.startsWith(':::lock')) { isLocking = true; lockPassword = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123'; lockContent = []; continue; }
+    if (trimmed.startsWith(':::lock')) {
+      isLocking = true;
+      lockPassword = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
+      lockContent = [];
+      continue;
+    }
     if (isLocking && trimmed === ':::') {
-      blocks.push({ object: 'block', type: 'callout', callout: { rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }], icon: { type: "emoji", emoji: "🔒" }, color: "gray_background", children: [ { object: 'block', type: 'divider', divider: {} }, ...lockContent.map(cl => {
-        const imgMatch = cl.trim().match(/!\[.*\]\((.*)\)/);
-        if (imgMatch) return { object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } };
-        return { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: cl || " " } }] } };
-      }) ] } });
+      blocks.push({
+        object: 'block', type: 'callout',
+        callout: {
+          rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }],
+          icon: { type: "emoji", emoji: "🔒" },
+          color: "gray_background",
+          children: [
+            { object: 'block', type: 'divider', divider: {} },
+            ...lockContent.map(cl => {
+              const imgMatch = cl.trim().match(/!\[.*\]\((.*)\)/);
+              if (imgMatch) return { object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } };
+              return { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: cl || " " } }] } };
+            })
+          ]
+        }
+      });
       isLocking = false; continue;
     }
     if (isLocking) { lockContent.push(line); continue; }
@@ -26,17 +44,30 @@ function mdToBlocks(markdown) {
     const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
     if (imgMatch) { blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } }); continue; }
     if (trimmed.startsWith('# ')) { blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } }); } 
-    else { blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: trimmed } }] } }); }
+    else {
+      const richText = [];
+      const parts = trimmed.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g).filter(Boolean);
+      for (const p of parts) {
+        if (p.startsWith('**')) richText.push({ text: { content: p.slice(2, -2) }, annotations: { bold: true } });
+        else if (p.startsWith('[')) {
+          const m = p.match(/\[([^\]]+)\]\(([^)]+)\)/);
+          if (m) richText.push({ text: { content: m[1], link: { url: m[2] } } });
+        } else richText.push({ text: { content: p } });
+      }
+      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: richText } });
+    }
   }
   return blocks;
 }
 
+// 🛠️ GET: 获取详情 + 预览所需的原始积木
 export async function GET(request) {
   const id = new URL(request.url).searchParams.get('id');
   if(!id) return NextResponse.json({ success: false });
   try {
     const page = await notion.pages.retrieve({ page_id: id });
     const mdblocks = await n2m.pageToMarkdown(id);
+    // 🟢 关键新增：抓取原始积木用于前端预览渲染
     const blocksRes = await notion.blocks.children.list({ block_id: id });
 
     mdblocks.forEach(b => {
@@ -61,12 +92,13 @@ export async function GET(request) {
         date: p.date?.date?.start || '',
         type: p.type?.select?.name || 'Post',
         content: n2m.toMarkdownString(mdblocks).parent,
-        rawBlocks: blocksRes.results
+        rawBlocks: blocksRes.results // 🟢 这里的 rawBlocks 对应前端预览
       }
     });
   } catch (e) { return NextResponse.json({ success: false }); }
 }
 
+// 🛠️ POST: 保存与多线程更新
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -85,6 +117,7 @@ export async function POST(request) {
       "type": { select: { name: type || "Post" } }
     };
     if (cover) props["cover"] = { url: cover };
+
     if (id) {
       await notion.pages.update({ page_id: id, properties: props });
       const children = await notion.blocks.children.list({ block_id: id });
