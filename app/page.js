@@ -14,25 +14,34 @@ const Icons = {
   Loader: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="spinning"><circle cx="12" cy="12" r="10" strokeOpacity="0.2"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke="#007aff"></path></svg>
 };
 
-// 预览渲染组件
+// 预览组件：已修复图片全宽显示和视频支持
 const NotionView = ({ blocks }) => (
   <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8'}}>
     {blocks?.map((b, i) => {
-      const d = b[b.type], t = d?.rich_text?.[0]?.plain_text || "";
-      if(b.type==='heading_1') return <h1 key={i} style={{fontSize:'1.8em', borderBottom:'1px solid #333', paddingBottom:'8px', margin:'20px 0'}}>{t}</h1>;
-      if(b.type==='paragraph') return <p key={i} style={{margin:'10px 0', minHeight:'1em'}}>{t}</p>;
-      if(b.type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #444', margin:'20px 0'}} />;
-      // 🟢 修复：图片强制 100% 宽度，高度自适应
-      if(b.type==='image') return <img key={i} src={d.external?.url || d.file?.url} style={{width:'100%', height:'auto', borderRadius:'8px', margin:'20px 0', display:'block'}} alt="img" />;
-      // 🟢 新增：视频支持
-      if(b.type==='video') return <video key={i} src={d.external?.url || d.file?.url} controls style={{width:'100%', borderRadius:'8px', margin:'20px 0', background:'#000'}} />;
+      const type = b.type;
+      const data = b[type];
+      const text = data?.rich_text?.[0]?.plain_text || "";
       
-      if(b.type==='callout') return <div key={i} style={{background:'#2d2d30', padding:'20px', borderRadius:'12px', border:'1px solid #3e3e42', display:'flex', gap:'15px', margin:'20px 0'}}><div style={{fontSize:'1.4em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1}}><div style={{fontWeight:'bold', color:'#007aff', marginBottom:'4px'}}>{t}</div><div style={{fontSize:'12px', opacity:0.5}}>[ 加密内容已受保护 ]</div></div></div>;
+      if(type==='heading_1') return <h1 key={i} style={{fontSize:'1.8em', borderBottom:'1px solid #333', paddingBottom:'8px', margin:'24px 0 12px'}}>{text}</h1>;
+      if(type==='paragraph') return <p key={i} style={{margin:'10px 0', minHeight:'1em'}}>{text}</p>;
+      if(type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #444', margin:'24px 0'}} />;
+      
+      // 图片强制 100% 宽度，高度自适应
+      if(type==='image') {
+        const url = data?.file?.url || data?.external?.url;
+        return <img key={i} src={url} style={{width:'100%', height:'auto', borderRadius:'8px', margin:'20px 0', display:'block'}} alt="" />;
+      }
+      // 视频支持
+      if(type==='video') {
+        const url = data?.file?.url || data?.external?.url;
+        return <video key={i} src={url} controls style={{width:'100%', borderRadius:'8px', margin:'20px 0', background:'#000'}} />;
+      }
+
+      if(type==='callout') return <div key={i} style={{background:'#2d2d30', padding:'20px', borderRadius:'12px', border:'1px solid #3e3e42', display:'flex', gap:'15px', margin:'20px 0'}}><div style={{fontSize:'1.4em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1}}><div style={{fontWeight:'bold', color:'#007aff', marginBottom:'4px'}}>{text}</div><div style={{fontSize:'12px', opacity:0.5}}>[ 加密内容已受保护 ]</div></div></div>;
       return null;
     })}
   </div>
 );
-
 export default function Home() {
   const [mounted, setMounted] = useState(false), [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [isSearchOpen, setIsSearchOpen] = useState(false), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
   const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null), [rawLinks, setRawLinks] = useState(''), [mdLinks, setMdLinks] = useState(''), textAreaRef = useRef(null);
@@ -49,16 +58,11 @@ export default function Home() {
       .drawer { position: absolute; right: -120px; top: 0; bottom: 0; width: 120px; display: flex; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
       .card-item:hover .drawer { right: 0; }
       .dr-btn { flex: 1; display: flex; align-items: center; justify-content: center; color: #fff; transition: 0.2s; }
-      
       .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
-      .modal-box { background: #202024; width: 90%; maxWidth: 750px; height: 80vh; border-radius: 24px; border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; }
-      /* 🟢 预览内容留白 */
+      .modal-box { background: #202024; width: 90%; maxWidth: 750px; height: 85vh; border-radius: 24px; border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; }
       .modal-body { flex: 1; overflow-y: auto; padding: 40px 80px; }
-
-      .btn-ia { transition: transform 0.1s, filter 0.2s; }
-      .btn-ia:active { transform: scale(0.96); }
-      .btn-ia:hover { filter: brightness(1.15); }
-
+      .btn-ia:active { transform: scale(0.95); }
+      .btn-ia:hover { filter: brightness(1.2); }
       .tag-chip { background: #333; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #bbb; margin: 0 5px 5px 0; cursor: pointer; position: relative; }
       .tag-del { position: absolute; top: -5px; right: -5px; background: #ff4d4f; color: white; border-radius: 50%; width: 14px; height: 14px; display: none; align-items: center; justify-content: center; font-size: 10px; }
       .tag-chip:hover .tag-del { display: flex; }
@@ -66,15 +70,13 @@ export default function Home() {
       .spinning { animation: rotate 1s linear infinite; }
       @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       .load-toast { position: fixed; top: 20px; right: 20px; background: #202024; border: 1px solid #333; padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; gap: 10px; z-index: 2000; box-shadow: 0 5px 15px rgba(0,0,0,0.3); font-weight: bold; font-size: 13px; }
-      
-      /* 🟢 4.9 样式完美回归 */
       input, select, textarea { width: 100%; padding: 14px; background: #18181c; border: 1px solid #333; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 15px; outline: none; transition: 0.2s; }
       input:focus, select:focus, textarea:focus { border-color: #007aff; background: #1f1f23; }
     `;
-    document.head.appendChild(s);
+    document.head.appendChild(style);
   }, []);
 
-  // 🟢 修复：变量名修正 d -> d
+  // 修复后的数据获取逻辑
   async function fetchPosts() { 
     setLoading(true); 
     try { 
@@ -82,7 +84,7 @@ export default function Home() {
       const d = await r.json(); 
       if (d.success) { 
         setPosts(d.posts || []); 
-        setOptions(d.options || { categories: [], tags: [] }); // 修复点
+        setOptions(d.options || { categories: [], tags: [] }); 
       } 
     } finally { setLoading(false); } 
   }
@@ -118,7 +120,7 @@ export default function Home() {
   };
 
   const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
-  const displayTags = (options.tags && options.tags.length > 0) ? (showAllTags ? options.tags : options.tags.slice(0, 12)) : [];
+const displayTags = (options.tags && options.tags.length > 0) ? (showAllTags ? options.tags : options.tags.slice(0, 12)) : [];
 
   return (
     <div style={{ minHeight: '100vh', background: '#303030', padding: '40px 20px' }}>
@@ -160,7 +162,7 @@ export default function Home() {
                   </>}
                   <div className="drawer">
                     <div onClick={(e) => { e.stopPropagation(); handleEdit(p); }} style={{background:'#007aff'}} className="dr-btn"><Icons.Edit /></div>
-                    <div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){setLoading(true); fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())} }} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div>
+                    <div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){setLoading(true); fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())}}} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div>
                   </div>
                 </div>
               ))}
@@ -172,7 +174,7 @@ export default function Home() {
               <div><label style={s.lab}>分类 *</label><input list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} style={s.inp}/><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
               <div><label style={s.lab}>发布日期 *</label><input type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} style={s.inp}/></div>
             </div>
-            <div style={{marginBottom:'20px'}}><label style={s.lab}>标签</label><input value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} style={s.inp}/><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{(options.tags||[]).map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'#007aff', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
+            <div style={{marginBottom:'20px'}}><label style={s.lab}>标签</label><input value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} style={s.inp}/><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'#007aff', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
             <div style={{marginBottom:'20px'}}><label style={s.lab}>封面图 URL</label><input value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} style={s.inp}/></div>
             <div style={{marginBottom:'30px'}}><label style={s.lab}>摘要</label><input value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} style={s.inp}/></div>
             <div style={s.tBox}><button onClick={()=>window.open("https://x1file.top/home")} style={s.btnGrayF} className="btn-ia">🎬 打开网盘获取素材</button><textarea style={{height:'120px', background:'#18181c'}} placeholder="直链转换..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} /><button onClick={convertLinks} style={s.btnBlueF} className="btn-ia">立即转换</button>{mdLinks && <button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={s.btnGrayF} className="btn-ia">复制全部结果</button>}</div>
@@ -189,11 +191,7 @@ export default function Home() {
                 <strong>预览: {previewData.title}</strong>
                 <button onClick={()=>setPreviewData(null)} style={{background:'none', border:'none', color:'#666', fontSize:'24px', cursor:'pointer'}}>×</button>
               </div>
-              <div className="modal-body">
-                {previewData.cover && <div style={{width:'100%', maxHeight:'300px', overflow:'hidden', borderRadius:'12px', marginBottom:'24px', display:'flex', justifyContent:'center'}}><img src={previewData.cover} style={{height:'100%', width:'auto', objectFit:'contain'}} /></div>}
-                <div style={{marginBottom:'30px', color:'#007aff', fontSize:'13px', fontWeight:'bold'}}>{previewData.category} · {previewData.date}</div>
-                <NotionView blocks={previewData.rawBlocks} />
-              </div>
+              <div className="modal-body"><NotionView blocks={previewData.rawBlocks} /></div>
             </div>
           </div>
         )}
