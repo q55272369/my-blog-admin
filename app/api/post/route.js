@@ -36,8 +36,6 @@ export async function GET(request) {
   try {
     const page = await notion.pages.retrieve({ page_id: id });
     const mdblocks = await n2m.pageToMarkdown(id);
-    
-    // 🟢 关键：获取原始 blocks 用于前端预览渲染
     const blocksResponse = await notion.blocks.children.list({ block_id: id });
 
     mdblocks.forEach(b => {
@@ -63,7 +61,7 @@ export async function GET(request) {
         date: p.date?.date?.start || '',
         type: p.type?.select?.name || 'Post',
         content: mdString.parent,
-        rawBlocks: blocksResponse.results // 🟢 传给前端预览
+        rawBlocks: blocksResponse.results
       }
     });
   } catch (error) { return NextResponse.json({ success: false }); }
