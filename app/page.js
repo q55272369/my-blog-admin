@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
-// 图标库
+// 图标库 (保持不变)
 const Icons = {
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
@@ -14,34 +14,57 @@ const Icons = {
   Loader: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="spinning"><circle cx="12" cy="12" r="10" strokeOpacity="0.2"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke="#007aff"></path></svg>
 };
 
-// 预览组件：已修复图片全宽显示和视频支持
+// 🔴 修复 1 & 3：NotionView 组件（优化图片比例，增强视频支持）
 const NotionView = ({ blocks }) => (
   <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8'}}>
     {blocks?.map((b, i) => {
       const type = b.type;
       const data = b[type];
+      // 处理文本内容，防止空指针
       const text = data?.rich_text?.[0]?.plain_text || "";
       
       if(type==='heading_1') return <h1 key={i} style={{fontSize:'1.8em', borderBottom:'1px solid #333', paddingBottom:'8px', margin:'24px 0 12px'}}>{text}</h1>;
       if(type==='paragraph') return <p key={i} style={{margin:'10px 0', minHeight:'1em'}}>{text}</p>;
       if(type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #444', margin:'24px 0'}} />;
       
-      // 图片强制 100% 宽度，高度自适应
+      // 🖼️ 图片修复：限制最大高度，居中显示，不再强制撑满宽度
       if(type==='image') {
         const url = data?.file?.url || data?.external?.url;
-        return <img key={i} src={url} style={{width:'100%', height:'auto', borderRadius:'8px', margin:'20px 0', display:'block'}} alt="" />;
+        return (
+          <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
+             <img src={url} style={{maxWidth:'100%', maxHeight:'650px', borderRadius:'8px', objectFit:'contain', boxShadow:'0 8px 20px rgba(0,0,0,0.3)'}} alt="" />
+          </div>
+        );
       }
-      // 视频支持
+
+      // 🎬 视频修复：支持 controls，设置 preload，限制最大高度
       if(type==='video') {
         const url = data?.file?.url || data?.external?.url;
-        return <video key={i} src={url} controls style={{width:'100%', borderRadius:'8px', margin:'20px 0', background:'#000'}} />;
+        return (
+          <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
+            <video 
+              src={url} 
+              controls 
+              preload="metadata" 
+              style={{maxWidth:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} 
+            />
+          </div>
+        );
+      }
+      
+      // 嵌入内容 (YouTube等) 兜底支持
+      if(type==='embed') {
+         const url = data?.url;
+         return <div key={i} style={{padding:'10px', background:'#333', borderRadius:'8px', textAlign:'center', margin:'10px 0'}}><a href={url} target="_blank" style={{color:'#007aff'}}>🔗 打开嵌入内容</a></div>
       }
 
       if(type==='callout') return <div key={i} style={{background:'#2d2d30', padding:'20px', borderRadius:'12px', border:'1px solid #3e3e42', display:'flex', gap:'15px', margin:'20px 0'}}><div style={{fontSize:'1.4em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1}}><div style={{fontWeight:'bold', color:'#007aff', marginBottom:'4px'}}>{text}</div><div style={{fontSize:'12px', opacity:0.5}}>[ 加密内容已受保护 ]</div></div></div>;
+      
       return null;
     })}
   </div>
 );
+
 export default function Home() {
   const [mounted, setMounted] = useState(false), [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [isSearchOpen, setIsSearchOpen] = useState(false), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
   const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null), [rawLinks, setRawLinks] = useState(''), [mdLinks, setMdLinks] = useState(''), textAreaRef = useRef(null);
@@ -59,8 +82,8 @@ export default function Home() {
       .card-item:hover .drawer { right: 0; }
       .dr-btn { flex: 1; display: flex; align-items: center; justify-content: center; color: #fff; transition: 0.2s; }
       .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
-      .modal-box { background: #202024; width: 90%; maxWidth: 750px; height: 85vh; border-radius: 24px; border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; }
-      .modal-body { flex: 1; overflow-y: auto; padding: 40px 80px; }
+      .modal-box { background: #202024; width: 90%; maxWidth: 900px; height: 90vh; border-radius: 24px; border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+      .modal-body { flex: 1; overflow-y: auto; padding: 40px; scroll-behavior: smooth; }
       .btn-ia:active { transform: scale(0.95); }
       .btn-ia:hover { filter: brightness(1.2); }
       .tag-chip { background: #333; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #bbb; margin: 0 5px 5px 0; cursor: pointer; position: relative; }
@@ -72,11 +95,15 @@ export default function Home() {
       .load-toast { position: fixed; top: 20px; right: 20px; background: #202024; border: 1px solid #333; padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; gap: 10px; z-index: 2000; box-shadow: 0 5px 15px rgba(0,0,0,0.3); font-weight: bold; font-size: 13px; }
       input, select, textarea { width: 100%; padding: 14px; background: #18181c; border: 1px solid #333; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 15px; outline: none; transition: 0.2s; }
       input:focus, select:focus, textarea:focus { border-color: #007aff; background: #1f1f23; }
+      /* 自定义滚动条 */
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-track { background: #202024; }
+      ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #555; }
     `;
     document.head.appendChild(style);
   }, []);
 
-  // 修复后的数据获取逻辑
   async function fetchPosts() { 
     setLoading(true); 
     try { 
@@ -94,6 +121,7 @@ export default function Home() {
   const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
   const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setCurrentId(p.id); setView('edit'); } }).finally(()=>setLoading(false)); };
 
+  // 🔴 修复 2：外链转换逻辑（立即回显到输入框）
   const convertLinks = () => {
     if(!rawLinks.trim()) return;
     const lines = rawLinks.split('\n').filter(l => l.trim());
@@ -101,7 +129,14 @@ export default function Home() {
       const m = l.match(/https?:\/\/[^\s]+/);
       return m ? `![](${m[0]})` : '';
     }).filter(Boolean);
-    if(final.length > 0) setMdLinks(final.join('\n'));
+    
+    if(final.length > 0) {
+      const result = final.join('\n');
+      setMdLinks(result); 
+      setRawLinks(result); // 关键修复：直接更新输入框内容
+    } else {
+      alert("未识别到有效链接");
+    }
   };
 
   const insertText = (before, after = '') => {
@@ -120,7 +155,7 @@ export default function Home() {
   };
 
   const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
-const displayTags = (options.tags && options.tags.length > 0) ? (showAllTags ? options.tags : options.tags.slice(0, 12)) : [];
+  const displayTags = (options.tags && options.tags.length > 0) ? (showAllTags ? options.tags : options.tags.slice(0, 12)) : [];
 
   return (
     <div style={{ minHeight: '100vh', background: '#303030', padding: '40px 20px' }}>
@@ -177,7 +212,7 @@ const displayTags = (options.tags && options.tags.length > 0) ? (showAllTags ? o
             <div style={{marginBottom:'20px'}}><label style={s.lab}>标签</label><input value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} style={s.inp}/><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'#007aff', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
             <div style={{marginBottom:'20px'}}><label style={s.lab}>封面图 URL</label><input value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} style={s.inp}/></div>
             <div style={{marginBottom:'30px'}}><label style={s.lab}>摘要</label><input value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} style={s.inp}/></div>
-            <div style={s.tBox}><button onClick={()=>window.open("https://x1file.top/home")} style={s.btnGrayF} className="btn-ia">🎬 打开网盘获取素材</button><textarea style={{height:'120px', background:'#18181c'}} placeholder="直链转换..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} /><button onClick={convertLinks} style={s.btnBlueF} className="btn-ia">立即转换</button>{mdLinks && <button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={s.btnGrayF} className="btn-ia">复制全部结果</button>}</div>
+            <div style={s.tBox}><button onClick={()=>window.open("https://x1file.top/home")} style={s.btnGrayF} className="btn-ia">🎬 打开网盘获取素材</button><textarea style={{height:'120px', background:'#18181c'}} placeholder="在这里粘贴需要清洗的链接（每行一个）..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} /><button onClick={convertLinks} style={s.btnBlueF} className="btn-ia">立即转换 (覆盖显示)</button>{mdLinks && <button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={s.btnGrayF} className="btn-ia">复制全部结果</button>}</div>
             <div style={s.eTool}><button style={s.toolItem} onClick={()=>setForm({...form, content:form.content+'# '})}>H1</button><button style={s.toolItem} onClick={()=>setForm({...form, content:form.content+'**加粗**'})}>B</button><button style={s.eBtnBlue} onClick={()=>setForm({...form, content:form.content+':::lock 123\n\n:::'})}>🔒 插入加密块</button></div>
             <textarea ref={textAreaRef} style={{height:'500px', borderRadius:'0 0 10px 10px', background:'#18181c', color:'#fff', padding:'15px'}} value={form.content} onChange={e=>setForm({...form, content:e.target.value})} placeholder="在这里写正文..." />
             <button onClick={()=>{setLoading(true); fetch('/api/post',{method:'POST', body:JSON.stringify({...form, id:currentId})}).then(()=>{setView('list'); fetchPosts();})}} disabled={!isFormValid} style={isFormValid?s.btnP:s.btnD} className="btn-ia">确认发布</button>
@@ -225,7 +260,7 @@ const s = {
   tBox: { background:'#303030', padding:'20px', borderRadius:'15px', marginBottom:'30px', border:'1px solid #555' },
   btnBlueF: { width:'100%', padding:'12px', background:'#007aff', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'bold', marginTop:'10px' },
   btnGrayF: { width:'100%', padding:'12px', background:'#424242', color:'#fff', border:'1px solid #555', borderRadius:'8px', cursor:'pointer', fontWeight:'bold' },
-  editTool: { background:'#303030', padding:'10px', borderRadius:'8px 8px 0 0', display:'flex', gap:'10px', border:'1px solid #555', borderBottom:'none' },
+  eTool: { background:'#303030', padding:'10px', borderRadius:'8px 8px 0 0', display:'flex', gap:'10px', border:'1px solid #555', borderBottom:'none' },
   toolItem: { background:'#424242', color:'#fff', padding:'6px 12px', border:'1px solid #555', borderRadius:'4px', cursor:'pointer' },
   eBtnBlue: { background:'#007aff', color:'#fff', padding:'6px 12px', border:'none', borderRadius:'4px', cursor:'pointer' },
   btnP: { width:'100%', padding:'20px', background:'#fff', color:'#000', border:'none', borderRadius:'12px', fontWeight:'bold', fontSize:'16px', marginTop:'40px', cursor:'pointer' },
