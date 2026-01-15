@@ -10,19 +10,19 @@ const Icons = {
   FolderMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>,
   FolderIcon: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff" style={{opacity:0.8}}><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"></path></svg>,
   Edit: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>,
-  Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
-  Loader: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="spinning"><circle cx="12" cy="12" r="10" strokeOpacity="0.2"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke="#007aff"></path></svg>
+  Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
 };
 
-const NotionViewer = ({ blocks }) => (
+// 🟢 5.3 比例版预览渲染
+const NotionView = ({ blocks }) => (
   <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8', maxWidth:'600px', margin:'0 auto'}}>
     {blocks?.map((b, i) => {
       const d = b[b.type], t = d?.rich_text?.[0]?.plain_text || "";
-      if(b.type==='heading_1') return <h1 key={i} style={{fontSize:'1.8em', borderBottom:'1px solid #333', paddingBottom:'8px', margin:'20px 0'}}>{t}</h1>;
-      if(b.type==='paragraph') return <p key={i} style={{margin:'10px 0', minHeight:'1em'}}>{t}</p>;
-      if(b.type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #444', margin:'20px 0'}} />;
-      if(b.type==='image') return <img key={i} src={d.external?.url || d.file?.url} style={{width:'100%', maxHeight:'400px', objectFit:'contain', borderRadius:'10px', margin:'15px 0'}} />;
-      if(b.type==='callout') return <div key={i} style={{background:'#2d2d30', padding:'15px', borderRadius:'10px', border:'1px solid #3e3e42', display:'flex', gap:'12px', margin:'15px 0'}}><div style={{fontSize:'1.3em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1, fontWeight:'bold', color:'#007aff'}}>{t}</div></div>;
+      if(b.type==='heading_1') return <h1 key={i} style={{fontSize:'1.8em', borderBottom:'1px solid #333', paddingBottom:'8px', margin:'24px 0 12px'}}>{t}</h1>;
+      if(b.type==='paragraph') return <p key={i} style={{margin:'12px 0', minHeight:'1em'}}>{t}</p>;
+      if(b.type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #333', margin:'24px 0'}} />;
+      if(b.type==='image') return <img key={i} src={d.external?.url || d.file?.url} style={{width:'100%', borderRadius:'10px', margin:'15px 0'}} />;
+      if(b.type==='callout') return <div key={i} style={{background:'#2d2d30', padding:'16px 24px', borderRadius:'10px', border:'1px solid #3e3e42', display:'flex', gap:'12px', margin:'15px 0'}}><div style={{fontSize:'1.3em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1}}><div style={{fontWeight:'bold', color:'#007aff', marginBottom:'4px'}}>{t}</div><div style={{fontSize:'0.9em', opacity:0.6}}>[ 加密保护内容 ]</div></div></div>;
       return null;
     })}
   </div>
@@ -38,27 +38,21 @@ export default function Home() {
     setMounted(true); fetchPosts();
     const style = document.head.appendChild(document.createElement('style'));
     style.innerHTML = `
-      body { background-color: #303030; color: #fff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
-      .card-item { position: relative; background: #424242; border-radius: 12px; margin-bottom: 12px; border: 1px solid transparent; cursor: pointer; transition: 0.3s; overflow: hidden; display: flex !important; flex-direction: row !important; align-items: stretch; }
+      body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
+      .card-item { position: relative; background: #424242; border-radius: 12px; margin-bottom: 12px; display: flex !important; flex-direction: row !important; align-items: stretch; overflow: hidden; cursor: pointer; transition: 0.3s; border: 1px solid transparent; }
       .card-item:hover { border-color: #007aff; transform: translateY(-2px); background: #4d4d4d; }
       .drawer { position: absolute; right: -120px; top: 0; bottom: 0; width: 120px; display: flex; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
       .card-item:hover .drawer { right: 0; }
       .dr-btn { flex: 1; display: flex; align-items: center; justify-content: center; color: #fff; transition: 0.2s; }
-      .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(5px); }
-      .modal-box { background: #202024; width: 90%; maxWidth: 750px; height: 85vh; border-radius: 24px; border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; }
-      .modal-body { flex: 1; overflow-y: auto; padding: 40px 80px; }
+      .btn-ia:active { transform: scale(0.95); }
       .tag-chip { background: #333; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #bbb; margin: 0 5px 5px 0; cursor: pointer; position: relative; }
       .tag-del { position: absolute; top: -5px; right: -5px; background: #ff4d4f; color: white; border-radius: 50%; width: 14px; height: 14px; display: none; align-items: center; justify-content: center; font-size: 10px; }
       .tag-chip:hover .tag-del { display: flex; }
-      .btn-ia:active { transform: scale(0.95); }
-      .btn-ia:hover { filter: brightness(1.2); transform: scale(1.02); }
-      .spinning { animation: rotate 1s linear infinite; }
-      @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      .loader-bar { position: fixed; top: 20px; right: 20px; background: #202024; border: 1px solid #333; padding: 12px 20px; border-radius: 10px; display: flex; align-items: center; gap: 12px; z-index: 2000; }
+      .required-star { color: #ff4d4f !important; margin-left: 4px; font-weight: bold; }
     `;
   }, []);
 
-  async function fetchPosts() { setLoading(true); try { const r = await fetch('/api/posts'); const d = await r.json(); if (d.success) { setPosts(d.posts || []); setOptions(d.options || { categories:[], tags:[] }); } } finally { setLoading(false); } }
+  async function fetchPosts() { setLoading(true); try { const r = await fetch('/api/posts'); const d = await r.json(); if (d.success) { setPosts(d.posts || []); setOptions(d.options); } } finally { setLoading(false); } }
   if (!mounted) return null;
 
   const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
@@ -68,14 +62,13 @@ export default function Home() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#303030', padding: '40px 20px' }}>
-      {loading && <div className="loader-bar"><Icons.Loader /><span style={{fontSize:'12px', fontWeight:'bold'}}>处理中...</span></div>}
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
           <div style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '1px' }}>PRO<span style={{ color: '#007aff' }}>BLOG</span></div>
           <div style={{ display: 'flex', gap: '10px' }}>
             {view === 'list' ? (
               <><button onClick={() => setIsSearchOpen(!isSearchOpen)} style={s.iconBtn} className="btn-ia"><Icons.Search /></button>
-              <button onClick={() => { setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: activeTab, date: new Date().toISOString().split('T')[0] }); setCurrentId(null); setView('edit'); }} style={s.btnBlue} className="btn-ia">发布新内容</button></>
+              <button onClick={() => { setForm({ title: '', slug: 'p-' + Date.now().toString(36), excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: activeTab, date: new Date().toISOString().split('T')[0] }); setCurrentId(null); setView('edit'); }} style={s.btnBlue} className="btn-ia">发布新内容</button></>
             ) : <button onClick={() => setView('list')} style={s.btnGray} className="btn-ia">返回</button>}
           </div>
         </header>
@@ -84,7 +77,12 @@ export default function Home() {
           <main>
             <div style={s.tabBox}>{['Post', 'Widget'].map(t => <button key={t} onClick={() => { setActiveTab(t); setSelectedFolder(null); }} style={activeTab === t ? s.tabOn : s.tabOff}>{t === 'Post' ? '已发布' : '组件'}</button>)}</div>
             {isSearchOpen && <input style={s.search} placeholder="搜索标题或Slug..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />}
-            <div style={s.toolbar}><button onClick={()=>setViewMode('folder')} style={viewMode==='folder'?s.iconOn:s.iconBtn} className="btn-ia"><Icons.FolderMode /></button><button onClick={()=>setViewMode('covered')} style={viewMode==='covered'?s.iconOn:s.iconBtn} className="btn-ia"><Icons.CoverMode /></button><button onClick={()=>setViewMode('text')} style={viewMode==='text'?s.iconOn:s.iconBtn} className="btn-ia"><Icons.TextMode /></button><button onClick={()=>setViewMode('gallery')} style={viewMode==='gallery'?s.iconOn:s.iconBtn} className="btn-ia"><Icons.GridMode /></button></div>
+            <div style={s.toolbar}>
+                <button onClick={() => {setViewMode('folder'); setSelectedFolder(null);}} style={viewMode==='folder'?s.iconOn:s.iconBtn} className="btn-ia"><Icons.FolderMode /></button>
+                <button onClick={() => setViewMode('covered')} style={viewMode==='covered'?s.iconOn:s.iconBtn} className="btn-ia"><Icons.CoverMode /></button>
+                <button onClick={() => setViewMode('text')} style={viewMode==='text'?s.iconOn:s.iconBtn} className="btn-ia"><Icons.TextMode /></button>
+                <button onClick={() => setViewMode('gallery')} style={viewMode==='gallery'?s.iconOn:s.iconBtn} className="btn-ia"><Icons.GridMode /></button>
+            </div>
 
             <div style={viewMode === 'gallery' || viewMode === 'folder' ? {display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'15px'} : {}}>
               {viewMode === 'folder' && options.categories.map(cat => <div key={cat} onClick={()=>{setSelectedFolder(cat); setViewMode('covered');}} style={s.folderCard} className="btn-ia"><Icons.FolderIcon />{cat}</div>)}
@@ -99,27 +97,43 @@ export default function Home() {
                     <div style={s.galCover}>{p.cover ? <img src={p.cover} style={s.coverImg} /> : <div style={{fontSize:'40px', color:'#444'}}>{activeTab[0]}</div>}</div>
                     <div style={{padding:'15px'}}><div style={{fontSize:'14px', fontWeight:'bold', color:'#fff'}}>{p.title}</div><div style={s.meta}>{p.category} · {p.date}</div></div>
                   </>}
-                  <div className="drawer"><div onClick={(e) => { e.stopPropagation(); handleEdit(p); }} style={{background:'#007aff'}} className="dr-btn"><Icons.Edit /></div><div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){setLoading(true); fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())} }} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div></div>
+                  <div className="drawer">
+                    <div onClick={(e) => { e.stopPropagation(); handleEdit(p); }} style={{background:'#007aff'}} className="dr-btn"><Icons.Edit /></div>
+                    <div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())} }} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div>
+                  </div>
                 </div>
               ))}
             </div>
           </main>
         ) : (
-          <main style={s.panel}><div style={{marginBottom:'20px'}}><label style={s.lab}>标题 *</label><input value={form.title} onChange={e=>setForm({...form, title:e.target.value})} style={s.inp}/></div>
+          <main style={s.panel}>
+            <div style={{marginBottom:'20px'}}><label style={s.lab}>标题 <span className="required-star">*</span></label><input value={form.title} onChange={e=>setForm({...form, title:e.target.value})} style={s.inp}/></div>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'20px'}}>
-              <div><label style={s.lab}>分类 *</label><input list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} style={s.inp}/><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
-              <div><label style={s.lab}>发布日期 *</label><input type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} style={s.inp}/></div>
+              <div><label style={s.lab}>分类 <span className="required-star">*</span></label><input list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} style={s.inp}/><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
+              <div><label style={s.lab}>发布日期 <span className="required-star">*</span></label><input type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} style={s.inp}/></div>
             </div>
-            <div style={{marginBottom:'20px'}}><label style={s.lab}>标签</label><input value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} style={s.inp}/><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{(options.tags||[]).map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); setLoading(true); fetch('/api/tags?name='+t,{method:'DELETE'}).then(()=>fetchPosts())}}>×</div></span>)}</div></div>
+            <div style={{marginBottom:'20px'}}><label style={s.lab}>标签</label><input value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} style={s.inp}/><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{(options.tags||[]).map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); fetch('/api/tags?name='+t,{method:'DELETE'}).then(()=>fetchPosts())}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'#007aff', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
             <div style={{marginBottom:'20px'}}><label style={s.lab}>封面图 URL</label><input value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} style={s.inp}/></div>
             <div style={{marginBottom:'30px'}}><label style={s.lab}>摘要</label><input value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} style={s.inp}/></div>
             <div style={s.tBox}><button onClick={()=>window.open("https://x1file.top/home")} style={s.btnGrayF} className="btn-ia">🎬 打开网盘获取素材</button><textarea style={{height:'120px', background:'#18181c', border:'1px solid #333', borderRadius:'8px', color:'#fff', padding:'10px'}} placeholder="直链转换..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} /><button onClick={()=>{const lines=rawLinks.split('\n'); const final=[]; for(let i=0; i<lines.length; i++){const m=lines[i].match(/https?:\/\/[^\s]+/); if(m) final.push(`![](${m[0]})`);} setMdLinks(final.join('\n'))}} style={s.btnBlueF} className="btn-ia">立即转换</button>{mdLinks && <button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={s.btnGrayF} className="btn-ia">复制全部结果</button>}</div>
             <div style={s.eTool}><button style={s.eBtn} onClick={()=>setForm({...form, content:form.content+'# '})}>H1</button><button style={s.eBtn} onClick={()=>setForm({...form, content:form.content+'**加粗**'})}>B</button><button style={s.eBtnBlue} onClick={()=>setForm({...form, content:form.content+':::lock 123\n\n:::'})}>🔒 插入加密块</button></div>
-            <textarea ref={textAreaRef} style={{height:'500px', borderRadius:'0 0 10px 10px', background:'#18181c', border:'1px solid #333', color:'#fff', padding:'15px'}} value={form.content} onChange={e=>setForm({...form, content:e.target.value})} placeholder="在这里写正文..." />
+            <textarea ref={textAreaRef} style={{height:'500px', borderRadius:'0 0 10px 10px', background:'#18181c', border:'1px solid #333', color:'#fff', padding:'15px', fontSize:'16px', lineHeight:'1.6'}} value={form.content} onChange={e=>setForm({...form, content:e.target.value})} placeholder="在这里写正文..." />
             <button onClick={()=>{setLoading(true); fetch('/api/post',{method:'POST', body:JSON.stringify({...form, id:currentId})}).then(()=>{setView('list'); fetchPosts();})}} disabled={!isFormValid} style={isFormValid?s.btnP:s.btnD} className="btn-ia">确认发布</button>
           </main>
         )}
-        {previewData && <div className="modal-bg" onClick={()=>setPreviewData(null)}><div className="modal-box" onClick={e=>e.stopPropagation()}><div style={{padding:'20px 25px', borderBottom:'1px solid #333', display:'flex', justifyContent:'space-between'}}><strong>预览: {previewData.title}</strong><button onClick={()=>setPreviewData(null)} style={{background:'none', border:'none', color:'#666', fontSize:'24px', cursor:'pointer'}}>×</button></div><div className="modal-body"><NotionViewer blocks={previewData.rawBlocks} /></div></div></div>}
+        
+        {/* 🟢 5.3 黄金比例预览窗 */}
+        {previewData && (
+          <div className="modal-bg" onClick={()=>setPreviewData(null)}>
+            <div className="modal-box" onClick={e=>e.stopPropagation()}>
+              <div style={{padding:'20px 25px', borderBottom:'1px solid #333', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <div style={{fontWeight:'900', fontSize:'18px'}}>预览: {previewData.title}</div>
+                <button onClick={() => setPreviewData(null)} style={{background:'none', border:'none', color:'#666', fontSize:'24px', cursor:'pointer'}}>×</button>
+              </div>
+              <div className="modal-body"><NotionView blocks={previewData.rawBlocks} /></div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -145,7 +159,7 @@ const s = {
   meta: { color:'#fff', fontSize:'12px', opacity:0.8 },
   galCover: { height:'140px', background:'#303030', display:'flex', alignItems:'center', justifyContent:'center' },
   panel: { background:'#424242', padding:'30px', borderRadius:'20px', border:'1px solid #555' },
-  lab: { display:'block', fontSize:'11px', color:'#fff', marginBottom:'10px', fontWeight:'bold', textTransform:'uppercase' },
+  lab: { display:'block', fontSize:'11px', color:'#fff', marginBottom:'10px', fontWeight:'bold', textTransform:'uppercase', letterSpacing:'1.5px' },
   inp: { background:'#18181c', border:'1px solid #333', color:'#fff' },
   tBox: { background:'#303030', padding:'20px', borderRadius:'15px', marginBottom:'30px', border:'1px solid #555' },
   btnBlueF: { width:'100%', padding:'12px', background:'#007aff', color:'#fff', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'bold', marginTop:'10px' },
