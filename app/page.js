@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
-// 图标库 (保持不变)
+// 图标库
 const Icons = {
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
@@ -14,65 +14,11 @@ const Icons = {
   Loader: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="spinning"><circle cx="12" cy="12" r="10" strokeOpacity="0.2"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke="#007aff"></path></svg>
 };
 
-// 🔴 修复 1 & 3：NotionView 组件（优化图片比例，增强视频支持）
-const NotionView = ({ blocks }) => (
-  <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8'}}>
-    {blocks?.map((b, i) => {
-      const type = b.type;
-      const data = b[type];
-      // 处理文本内容，防止空指针
-      const text = data?.rich_text?.[0]?.plain_text || "";
-      
-      if(type==='heading_1') return <h1 key={i} style={{fontSize:'1.8em', borderBottom:'1px solid #333', paddingBottom:'8px', margin:'24px 0 12px'}}>{text}</h1>;
-      if(type==='paragraph') return <p key={i} style={{margin:'10px 0', minHeight:'1em'}}>{text}</p>;
-      if(type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #444', margin:'24px 0'}} />;
-      
-      // 🖼️ 图片修复：限制最大高度，居中显示，不再强制撑满宽度
-      if(type==='image') {
-        const url = data?.file?.url || data?.external?.url;
-        return (
-          <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
-             <img src={url} style={{maxWidth:'100%', maxHeight:'650px', borderRadius:'8px', objectFit:'contain', boxShadow:'0 8px 20px rgba(0,0,0,0.3)'}} alt="" />
-          </div>
-        );
-      }
-
-      // 🎬 视频修复：支持 controls，设置 preload，限制最大高度
-      if(type==='video') {
-        const url = data?.file?.url || data?.external?.url;
-        return (
-          <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
-            <video 
-              src={url} 
-              controls 
-              preload="metadata" 
-              style={{maxWidth:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} 
-            />
-          </div>
-        );
-      }
-      
-      // 嵌入内容 (YouTube等) 兜底支持
-      if(type==='embed') {
-         const url = data?.url;
-         return <div key={i} style={{padding:'10px', background:'#333', borderRadius:'8px', textAlign:'center', margin:'10px 0'}}><a href={url} target="_blank" style={{color:'#007aff'}}>🔗 打开嵌入内容</a></div>
-      }
-
-      if(type==='callout') return <div key={i} style={{background:'#2d2d30', padding:'20px', borderRadius:'12px', border:'1px solid #3e3e42', display:'flex', gap:'15px', margin:'20px 0'}}><div style={{fontSize:'1.4em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1}}><div style={{fontWeight:'bold', color:'#007aff', marginBottom:'4px'}}>{text}</div><div style={{fontSize:'12px', opacity:0.5}}>[ 加密内容已受保护 ]</div></div></div>;
-      
-      return null;
-    })}
-  </div>
-);
-
 export default function Home() {
-  const [mounted, setMounted] = useState(false), [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [isSearchOpen, setIsSearchOpen] = useState(false), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
-  const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null), [rawLinks, setRawLinks] = useState(''), [mdLinks, setMdLinks] = useState(''), textAreaRef = useRef(null);
-
-  const isFormValid = form.title.trim() !== '' && form.category.trim() !== '' && form.date !== '';
-
+  const [mounted, setMounted] = useState(false);
+  
   useEffect(() => {
-    setMounted(true); fetchPosts();
+    setMounted(true);
     const style = document.head.appendChild(document.createElement('style'));
     style.innerHTML = `
       body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
@@ -95,64 +41,75 @@ export default function Home() {
       .load-toast { position: fixed; top: 20px; right: 20px; background: #202024; border: 1px solid #333; padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; gap: 10px; z-index: 2000; box-shadow: 0 5px 15px rgba(0,0,0,0.3); font-weight: bold; font-size: 13px; }
       input, select, textarea { width: 100%; padding: 14px; background: #18181c; border: 1px solid #333; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 15px; outline: none; transition: 0.2s; }
       input:focus, select:focus, textarea:focus { border-color: #007aff; background: #1f1f23; }
-      /* 自定义滚动条 */
       ::-webkit-scrollbar { width: 8px; }
       ::-webkit-scrollbar-track { background: #202024; }
       ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #555; }
     `;
-    document.head.appendChild(style);
   }, []);
+  // 🟢 智能媒体渲染组件：自动识别视频直链 vs 网页嵌入(YouTube/Bilibili)
+  const NotionView = ({ blocks }) => (
+    <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8'}}>
+      {blocks?.map((b, i) => {
+        const type = b.type;
+        const data = b[type];
+        const text = data?.rich_text?.[0]?.plain_text || "";
+        
+        if(type==='heading_1') return <h1 key={i} style={{fontSize:'1.8em', borderBottom:'1px solid #333', paddingBottom:'8px', margin:'24px 0 12px'}}>{text}</h1>;
+        if(type==='paragraph') return <p key={i} style={{margin:'10px 0', minHeight:'1em'}}>{text}</p>;
+        if(type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #444', margin:'24px 0'}} />;
+        
+        if(type==='image') {
+          const url = data?.file?.url || data?.external?.url;
+          return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}><img src={url} style={{maxWidth:'100%', maxHeight:'650px', borderRadius:'8px', objectFit:'contain', boxShadow:'0 8px 20px rgba(0,0,0,0.3)'}} alt="" /></div>;
+        }
 
-  async function fetchPosts() { 
-    setLoading(true); 
-    try { 
-      const r = await fetch('/api/posts'); 
-      const d = await r.json(); 
-      if (d.success) { 
-        setPosts(d.posts || []); 
-        setOptions(d.options || { categories: [], tags: [] }); 
-      } 
-    } finally { setLoading(false); } 
-  }
-  
+        // 🟢 视频与嵌入修复逻辑
+        if(type==='video' || type==='embed') {
+          let url = data?.file?.url || data?.external?.url || data?.url;
+          if(!url) return null;
+
+          // 判断是否需要 iframe (YouTube/Vimeo/Bilibili/Embed类型)
+          const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
+          const isBilibili = url.includes('bilibili.com');
+          const isEmbed = type === 'embed' || isYoutube || isBilibili;
+
+          if (isYoutube) {
+             // 简单的 YouTube 链接转换
+             if(url.includes('watch?v=')) url = url.replace('watch?v=', 'embed/');
+             if(url.includes('youtu.be/')) url = url.replace('youtu.be/', 'www.youtube.com/embed/');
+          }
+
+          return (
+            <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
+              {isEmbed ? (
+                <iframe src={url} style={{width:'100%', maxWidth:'800px', height:'450px', border:'none', borderRadius:'8px', background:'#000'}} allowFullScreen />
+              ) : (
+                <video src={url} controls preload="metadata" style={{maxWidth:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} />
+              )}
+            </div>
+          );
+        }
+
+        if(type==='callout') return <div key={i} style={{background:'#2d2d30', padding:'20px', borderRadius:'12px', border:'1px solid #3e3e42', display:'flex', gap:'15px', margin:'20px 0'}}><div style={{fontSize:'1.4em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1}}><div style={{fontWeight:'bold', color:'#007aff', marginBottom:'4px'}}>{text}</div><div style={{fontSize:'12px', opacity:0.5}}>[ 加密内容已受保护 ]</div></div></div>;
+        return null;
+      })}
+    </div>
+  );
+const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [isSearchOpen, setIsSearchOpen] = useState(false), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
+  const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null), [rawLinks, setRawLinks] = useState(''), [mdLinks, setMdLinks] = useState(''), textAreaRef = useRef(null);
+
+  const isFormValid = form.title.trim() !== '' && form.category.trim() !== '' && form.date !== '';
+
+  async function fetchPosts() { setLoading(true); try { const r = await fetch('/api/posts'); const d = await r.json(); if (d.success) { setPosts(d.posts || []); setOptions(d.options || { categories: [], tags: [] }); } } finally { setLoading(false); } }
+  useEffect(() => { if (mounted) fetchPosts(); }, [mounted]);
+
   if (!mounted) return null;
 
   const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
   const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setCurrentId(p.id); setView('edit'); } }).finally(()=>setLoading(false)); };
-
-  // 🔴 修复 2：外链转换逻辑（立即回显到输入框）
-  const convertLinks = () => {
-    if(!rawLinks.trim()) return;
-    const lines = rawLinks.split('\n').filter(l => l.trim());
-    const final = lines.map(l => {
-      const m = l.match(/https?:\/\/[^\s]+/);
-      return m ? `![](${m[0]})` : '';
-    }).filter(Boolean);
-    
-    if(final.length > 0) {
-      const result = final.join('\n');
-      setMdLinks(result); 
-      setRawLinks(result); // 关键修复：直接更新输入框内容
-    } else {
-      alert("未识别到有效链接");
-    }
-  };
-
-  const insertText = (before, after = '') => {
-    const el = textAreaRef.current; if (!el) return;
-    const start = el.selectionStart, end = el.selectionEnd, val = el.value;
-    const newText = val.substring(0, start) + before + val.substring(start, end) + after + val.substring(end);
-    setForm({ ...form, content: newText });
-    setTimeout(() => { el.focus(); el.setSelectionRange(start + before.length, end + before.length); }, 10);
-  };
-
-  const deleteTagOption = async (e, tagName) => {
-    e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return;
-    setLoading(true);
-    await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' });
-    fetchPosts();
-  };
+  const convertLinks = () => { if(!rawLinks.trim()) return; const lines = rawLinks.split('\n').filter(l => l.trim()); const final = lines.map(l => { const m = l.match(/https?:\/\/[^\s]+/); return m ? `![](${m[0]})` : ''; }).filter(Boolean); if(final.length > 0) { const res = final.join('\n'); setMdLinks(res); setRawLinks(res); } else { alert("未识别到链接"); } };
+  const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
   const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
   const displayTags = (options.tags && options.tags.length > 0) ? (showAllTags ? options.tags : options.tags.slice(0, 12)) : [];
@@ -174,37 +131,28 @@ export default function Home() {
         {view === 'list' ? (
           <main>
             <div style={s.tabBox}>{['Post', 'Widget'].map(t => <button key={t} onClick={() => { setActiveTab(t); setSelectedFolder(null); }} style={activeTab === t ? s.tabOn : s.tabOff}>{t === 'Post' ? '已发布' : '组件'}</button>)}</div>
-            {isSearchOpen && <input style={s.search} placeholder="搜索标题或Slug..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />}
+            {isSearchOpen && <input style={s.search} placeholder="搜索..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />}
             <div style={s.toolbar}>
                 <button onClick={() => {setViewMode('folder'); setSelectedFolder(null);}} style={viewMode==='folder'?s.iconOn:s.iconBtn} className="btn-ia"><Icons.FolderMode /></button>
                 <button onClick={() => setViewMode('covered')} style={viewMode==='covered'?s.iconOn:s.iconBtn} className="btn-ia"><Icons.CoverMode /></button>
                 <button onClick={() => setViewMode('text')} style={viewMode==='text'?s.iconOn:s.iconBtn} className="btn-ia"><Icons.TextMode /></button>
                 <button onClick={() => setViewMode('gallery')} style={viewMode==='gallery'?s.iconOn:s.iconBtn} className="btn-ia"><Icons.GridMode /></button>
             </div>
-
             <div style={viewMode === 'gallery' || viewMode === 'folder' ? {display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'15px'} : {}}>
               {viewMode === 'folder' && options.categories.map(cat => <div key={cat} onClick={()=>{setSelectedFolder(cat); setViewMode('covered');}} style={s.folderCard} className="btn-ia"><Icons.FolderIcon />{cat}</div>)}
               {viewMode !== 'folder' && filtered.map(p => (
                 <div key={p.id} onClick={() => handlePreview(p)} className="card-item" style={viewMode === 'text' ? s.cardText : viewMode === 'gallery' ? s.cardGallery : {}}>
-                  {viewMode === 'covered' && <>
-                    <div style={s.coverWrap}>{p.cover ? <img src={p.cover} style={s.coverImg} /> : <div style={{fontSize:'28px', color:'#444'}}>{activeTab[0]}</div>}</div>
-                    <div style={s.infoWrap}><div style={s.title}>{p.title}</div><div style={s.meta}>{p.category} · {p.date}</div></div>
-                  </>}
+                  {viewMode === 'covered' && <><div style={s.coverWrap}>{p.cover ? <img src={p.cover} style={s.coverImg} /> : <div style={{fontSize:'28px', color:'#444'}}>{activeTab[0]}</div>}</div><div style={s.infoWrap}><div style={s.title}>{p.title}</div><div style={s.meta}>{p.category} · {p.date}</div></div></>}
                   {viewMode === 'text' && <div style={{flex:1, display:'flex', alignItems:'center'}}><div style={{flex:1, fontSize:'14px'}}>{p.title}</div><div style={s.meta}>{p.category} · {p.date}</div></div>}
-                  {viewMode === 'gallery' && <>
-                    <div style={s.galCover}>{p.cover ? <img src={p.cover} style={s.coverImg} /> : <div style={{fontSize:'40px', color:'#444'}}>{activeTab[0]}</div>}</div>
-                    <div style={{padding:'15px'}}><div style={{fontSize:'14px', fontWeight:'bold', color:'#fff'}}>{p.title}</div><div style={s.meta}>{p.category} · {p.date}</div></div>
-                  </>}
-                  <div className="drawer">
-                    <div onClick={(e) => { e.stopPropagation(); handleEdit(p); }} style={{background:'#007aff'}} className="dr-btn"><Icons.Edit /></div>
-                    <div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){setLoading(true); fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())}}} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div>
-                  </div>
+                  {viewMode === 'gallery' && <><div style={s.galCover}>{p.cover ? <img src={p.cover} style={s.coverImg} /> : <div style={{fontSize:'40px', color:'#444'}}>{activeTab[0]}</div>}</div><div style={{padding:'15px'}}><div style={{fontSize:'14px', fontWeight:'bold', color:'#fff'}}>{p.title}</div><div style={s.meta}>{p.category} · {p.date}</div></div></>}
+                  <div className="drawer"><div onClick={(e) => { e.stopPropagation(); handleEdit(p); }} style={{background:'#007aff'}} className="dr-btn"><Icons.Edit /></div><div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){setLoading(true); fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())}}} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div></div>
                 </div>
               ))}
             </div>
           </main>
         ) : (
-          <main style={s.panel}><div style={{marginBottom:'20px'}}><label style={s.lab}>标题 *</label><input value={form.title} onChange={e=>setForm({...form, title:e.target.value})} style={s.inp}/></div>
+          <main style={s.panel}>
+            <div style={{marginBottom:'20px'}}><label style={s.lab}>标题 *</label><input value={form.title} onChange={e=>setForm({...form, title:e.target.value})} style={s.inp}/></div>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'20px'}}>
               <div><label style={s.lab}>分类 *</label><input list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} style={s.inp}/><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
               <div><label style={s.lab}>发布日期 *</label><input type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} style={s.inp}/></div>
