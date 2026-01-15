@@ -47,7 +47,7 @@ export default function Home() {
       ::-webkit-scrollbar-thumb:hover { background: #555; }
     `;
   }, []);
-  // 🟢 智能媒体渲染组件：自动识别视频直链 vs 网页嵌入(YouTube/Bilibili)
+  // 🟢 智能媒体渲染组件：修复 Markdown ![](.mp4) 无法预览的问题
   const NotionView = ({ blocks }) => (
     <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8'}}>
       {blocks?.map((b, i) => {
@@ -59,12 +59,26 @@ export default function Home() {
         if(type==='paragraph') return <p key={i} style={{margin:'10px 0', minHeight:'1em'}}>{text}</p>;
         if(type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #444', margin:'24px 0'}} />;
         
+        // 🖼️ 图片块处理逻辑（包含“伪装成图片的视频”检测）
         if(type==='image') {
           const url = data?.file?.url || data?.external?.url;
+          if (!url) return null;
+
+          // 🟢 关键修复：如果链接是 mp4/mov 结尾，强制转为视频播放器
+          const isVideoFile = url.match(/\.(mp4|mov|webm|ogg)(\?|$)/i);
+          if (isVideoFile) {
+             return (
+              <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
+                <video src={url} controls preload="metadata" style={{maxWidth:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} />
+              </div>
+            );
+          }
+
+          // 否则正常渲染图片
           return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}><img src={url} style={{maxWidth:'100%', maxHeight:'650px', borderRadius:'8px', objectFit:'contain', boxShadow:'0 8px 20px rgba(0,0,0,0.3)'}} alt="" /></div>;
         }
 
-        // 🟢 视频与嵌入修复逻辑
+        // 🎬 原生视频与嵌入块处理
         if(type==='video' || type==='embed') {
           let url = data?.file?.url || data?.external?.url || data?.url;
           if(!url) return null;
@@ -75,7 +89,6 @@ export default function Home() {
           const isEmbed = type === 'embed' || isYoutube || isBilibili;
 
           if (isYoutube) {
-             // 简单的 YouTube 链接转换
              if(url.includes('watch?v=')) url = url.replace('watch?v=', 'embed/');
              if(url.includes('youtu.be/')) url = url.replace('youtu.be/', 'www.youtube.com/embed/');
           }
