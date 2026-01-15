@@ -8,7 +8,6 @@ const n2m = new NotionToMarkdown({ notionClient: notion });
 
 // 🔄 辅助函数：将 Markdown 文本转换为 Notion 积木
 function mdToBlocks(markdown) {
-  // 分割行
   const lines = markdown.split(/\r?\n/);
   const blocks = [];
   let isLocking = false; 
@@ -19,7 +18,7 @@ function mdToBlocks(markdown) {
     const line = lines[i];
     const trimmed = line.trim();
 
-    // --- 加密块处理 ---
+    // --- 加密块开始 ---
     if (trimmed.startsWith(':::lock')) { 
       isLocking = true; 
       lockPassword = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123'; 
@@ -27,6 +26,7 @@ function mdToBlocks(markdown) {
       continue; 
     }
 
+    // --- 加密块结束 ---
     if (isLocking && trimmed === ':::') {
       blocks.push({ 
         object: 'block', 
@@ -45,38 +45,31 @@ function mdToBlocks(markdown) {
       continue;
     }
 
+    // --- 🟢 修复核心：收集加密内容时，主动丢弃空行 ---
     if (isLocking) { 
-      // 在加密块内部，保留原始内容（防止内部格式错乱），但在 Notion 内部它们是独立的积木
-      lockContent.push(line); 
+      // 只有当行内有内容时才收集，彻底杜绝 Notion 内部产生空积木
+      if (trimmed) {
+        lockContent.push(line); 
+      }
       continue; 
     }
 
     // --- 普通内容处理 ---
+    if (!trimmed) continue; // 普通区域也丢弃空行
 
-    // 🟡 核心防卫：彻底丢弃空行
-    // 只要这一行是空的，就直接跳过，绝不生成 Empty Block
-    if (!trimmed) continue;
-
-    // 图片
     const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
     if (imgMatch) { 
       blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } }); 
       continue; 
     }
 
-    // 标题
     if (trimmed.startsWith('# ')) { 
       blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } }); 
-    } 
-    else if (trimmed.startsWith('## ')) {
+    } else if (trimmed.startsWith('## ')) {
       blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ text: { content: trimmed.replace('## ', '') } }] } });
-    } 
-    // 粗体
-    else if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+    } else if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
       blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: trimmed.replace(/\*\*/g, '') }, annotations: { bold: true } }] } });
-    } 
-    // 普通文本
-    else { 
+    } else { 
       blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: line } }] } }); 
     }
   }
@@ -103,10 +96,11 @@ export async function GET(request) {
         const parts = b.parent.split('---');
         let body = parts.length > 1 ? parts.slice(1).join('---') : parts[0].replace(/LOCK:.*\n?/, '');
         
-        // 1. 去除引用符号 >
-        body = body.replace(/^> ?/gm, '');
-        // 2. 🟡 加密块内部也执行“紧凑化”：把所有连续换行变成单个换行
-        body = body.replace(/\n{2,}/g, '\n').trim();
+        // 🟢 修复核心：更强力的清洗逻辑
+        // 1. 去除引用符号 > 及其后的空白
+        body = body.replace(/^>[ \t]*/gm, '');
+        // 2. 将“换行+空白+换行”替换为“单换行”，这能同时处理 \n\n 和 \n  \n
+        body = body.replace(/\n\s*\n/g, '\n').trim();
         
         b.parent = `:::lock ${pwd}\n${body}\n:::`;
       }
@@ -114,11 +108,8 @@ export async function GET(request) {
 
     const mdStringObj = n2m.toMarkdownString(mdblocks);
     
-    // 🟡 终极修复：全局紧凑化
-    // 原来是 /\n{3,}/g -> '\n\n' (保留空行)
-    // 现在是 /\n{2,}/g -> '\n'   (消灭空行)
-    // 含义：只要遇到连续的2个或更多换行符，全部压扁成1个换行符。
-    let cleanContent = mdStringObj.parent.replace(/\n{2,}/g, '\n').trim();
+    // 全局紧凑化：将所有连续空行压扁
+    let cleanContent = mdStringObj.parent.replace(/\n\s*\n/g, '\n').trim();
 
     const p = page.properties;
     return NextResponse.json({
