@@ -8,7 +8,8 @@ const n2m = new NotionToMarkdown({ notionClient: notion });
 
 // 🔄 辅助函数：将 Markdown 文本转换为 Notion 积木
 function mdToBlocks(markdown) {
-  const lines = markdown.split('\n');
+  // 1. 使用正则分割换行，兼容 Windows (\r\n) 和 Unix (\n)
+  const lines = markdown.split(/\r?\n/);
   const blocks = [];
   let isLocking = false; 
   let lockPassword = ''; 
@@ -18,16 +19,14 @@ function mdToBlocks(markdown) {
     const line = lines[i];
     const trimmed = line.trim();
 
-    // 1. 处理加密块开始 :::lock
+    // --- 加密块逻辑开始 ---
     if (trimmed.startsWith(':::lock')) { 
       isLocking = true; 
-      // 提取密码，移除多余符号
       lockPassword = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123'; 
       lockContent = []; 
       continue; 
     }
 
-    // 2. 处理加密块结束 :::
     if (isLocking && trimmed === ':::') {
       blocks.push({ 
         object: 'block', 
@@ -37,8 +36,9 @@ function mdToBlocks(markdown) {
           icon: { type: "emoji", emoji: "🔒" }, 
           color: "gray_background", 
           children: [ 
-            { object: 'block', type: 'divider', divider: {} }, // 插入分割线，用于区分头部和内容
-            ...mdToBlocks(lockContent.join('\n')) // 递归处理加密块内部的内容（支持内部图片、标题等）
+            { object: 'block', type: 'divider', divider: {} },
+            // 递归处理加密内容，这样加密内容里也可以支持图片等语法
+            ...mdToBlocks(lockContent.join('\n')) 
           ] 
         } 
       });
@@ -46,21 +46,20 @@ function mdToBlocks(markdown) {
       continue;
     }
 
-    // 3. 收集加密块内容
+    // 🟡 关键修正1：在加密块内部，保留原始行（包括空行），以维持内部格式
     if (isLocking) { 
       lockContent.push(line); 
       continue; 
     }
+    // --- 加密块逻辑结束 ---
 
-    // 4. 处理普通积木
-    // 🟡 关键优化：忽略纯粹的空行，防止在 Notion 中生成大量空白块 (Empty Paragraphs)
-    // 只有当这一行完全为空，且不是文件的最后一行时，才作为空段落处理，或者干脆忽略
-    if (line.length === 0) { 
-       // 如果你想保留适度的空行，可以取消注释下面这行，但为了防止空行膨胀，建议忽略
-       // blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }); 
-       continue; 
-    }
+    // 🟡 关键修正2：在普通内容区，彻底忽略空行！
+    // 只要这一行 trim 后为空，就直接跳过，不生成 Paragraph 块。
+    // 这解决了 "GET \n\n -> POST 空块 -> GET \n\n\n\n" 的恶性膨胀循环。
+    if (!trimmed) continue;
 
+    // --- 积木转换逻辑 ---
+    
     // 图片处理
     const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
     if (imgMatch) { 
@@ -68,17 +67,21 @@ function mdToBlocks(markdown) {
       continue; 
     }
 
-    // 标题处理
+    // 标题 H1
     if (trimmed.startsWith('# ')) { 
       blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } }); 
-    } else if (trimmed.startsWith('## ')) {
+    } 
+    // 标题 H2
+    else if (trimmed.startsWith('## ')) {
       blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ text: { content: trimmed.replace('## ', '') } }] } });
-    } else if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
-      // 简易粗体处理
+    } 
+    // 简易粗体
+    else if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
       blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: trimmed.replace(/\*\*/g, '') }, annotations: { bold: true } }] } });
-    } else { 
-      // 普通文本
-      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: line } }] } }); // 使用 line 而不是 trimmed 以保留行首缩进（如果需要）
+    } 
+    // 普通文本
+    else { 
+      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: line } }] } }); 
     }
   }
   return blocks;
@@ -98,37 +101,24 @@ export async function GET(request) {
       rawBlocks = blocksRes.results;
     } catch (e) { console.error("Blocks error", e); }
 
-    // 🟢 关键修复：深度清洗加密块内容
+    // 清洗加密块格式
     mdblocks.forEach(b => {
       if (b.type === 'callout' && b.parent.includes('LOCK:')) {
         const pwd = b.parent.match(/LOCK:([a-zA-Z0-9]+)/)?.[1] || '123';
-        
-        // 分割头部和内容
-        // NotionToMd 会把 callout 变成带 "> " 的引用块格式，我们需要剥离它
         const parts = b.parent.split('---');
-        let body = '';
+        let body = parts.length > 1 ? parts.slice(1).join('---') : parts[0].replace(/LOCK:.*\n?/, '');
         
-        if (parts.length > 1) {
-            // 取分割线之后的所有内容
-            body = parts.slice(1).join('---');
-        } else {
-            // 兼容旧格式（如果没有分割线）
-            body = parts[0].replace(/LOCK:.*\n?/, '');
-        }
-
-        // 🟡 正则清洗：
-        // 1. /^> ?/gm : 删除每一行开头的 "> " (Markdown 引用符号)
-        // 2. .trim() : 删除首尾多余空行
+        // 清洗 Callout 自动产生的引用符号
         body = body.replace(/^> ?/gm, '').trim();
-
         b.parent = `:::lock ${pwd}\n${body}\n:::`;
       }
     });
 
     const mdStringObj = n2m.toMarkdownString(mdblocks);
     
-    // 🟡 全局清洗：防止空行恶性膨胀
-    // 将连续的3个或更多换行符替换为2个 (保持 Markdown 段落间距，但去除多余空洞)
+    // 🟡 关键修正3：读取时压缩换行符
+    // 将连续的3个及以上换行符压缩为2个。
+    // 这保证了编辑器里看起来段落分明，但不会有过大的空白。
     let cleanContent = mdStringObj.parent.replace(/\n{3,}/g, '\n\n').trim();
 
     const p = page.properties;
@@ -144,7 +134,7 @@ export async function GET(request) {
         status: p.status?.status?.name || 'Published',
         date: p.date?.date?.start || '',
         type: p.type?.select?.name || 'Post',
-        content: cleanContent, // 使用清洗后的内容
+        content: cleanContent, 
         rawBlocks: rawBlocks
       }
     });
@@ -157,7 +147,7 @@ export async function POST(request) {
     const { id, title, content, slug, excerpt, category, tags, cover, status, date, type } = body;
     const dbId = process.env.NOTION_DATABASE_ID;
     
-    // 使用优化后的 mdToBlocks 函数
+    // 使用新的去空行逻辑处理内容
     const newBlocks = mdToBlocks(content);
     
     const props = {
@@ -175,14 +165,12 @@ export async function POST(request) {
     
     if (id) {
       await notion.pages.update({ page_id: id, properties: props });
-      // 清空原有 Block 并重新写入
       const children = await notion.blocks.children.list({ block_id: id });
-      // 批量删除可能会较慢，但比递归删除稳定
+      // 删除旧块
       for (const b of children.results) {
           await notion.blocks.delete({ block_id: b.id });
       }
-      
-      // 分批写入 (Notion API 限制每次 100 个，这里保守设为 20)
+      // 分批插入新块
       for (let i = 0; i < newBlocks.length; i += 20) {
         await notion.blocks.children.append({ block_id: id, children: newBlocks.slice(i, i + 20) });
       }
