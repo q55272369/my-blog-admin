@@ -47,7 +47,7 @@ export default function Home() {
       ::-webkit-scrollbar-thumb:hover { background: #555; }
     `;
   }, []);
-// 🟢 智能媒体渲染组件：图片与视频视觉尺寸完美对齐（自适应宽度+留白）
+// 🟢 智能媒体渲染组件：图片增加与视频一致的“黑色相框”容器，确保视觉尺寸完全对齐
   const NotionView = ({ blocks }) => (
     <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8'}}>
       {blocks?.map((b, i) => {
@@ -69,25 +69,34 @@ export default function Home() {
           if (isVideoFile) {
              return (
               <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
-                <video src={url} controls preload="metadata" style={{maxWidth:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} />
+                <video src={url} controls preload="metadata" style={{width:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} />
               </div>
             );
           }
 
-          // 🟢 图片渲染修正：去掉 width:100% 和黑底，改为 maxWidth，让两边自然留白
+          // 🟢 图片渲染修正：增加“黑色相框”容器，强制尺寸与视频播放器一致
           return (
             <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
-              <img 
-                src={url} 
-                style={{
-                  maxWidth:'100%',      // 限制最大宽度，防止溢出，但不强制撑满
-                  maxHeight:'500px',    // 高度与视频严格对齐
-                  objectFit:'contain',  
-                  borderRadius:'8px', 
-                  boxShadow:'0 8px 20px rgba(0,0,0,0.3)' // 保持阴影增加立体感
-                }} 
-                alt="" 
-              />
+              <div style={{
+                width: '100%',           // 宽度撑满，与下方视频黑框对齐
+                height: '500px',         // 高度固定 500px
+                background: '#000',      // 黑色背景，模拟视频播放器质感
+                borderRadius: '8px',     // 圆角
+                display: 'flex',         // Flex 布局
+                justifyContent: 'center',// 水平居中
+                alignItems: 'center',    // 垂直居中
+                overflow: 'hidden'       // 防止溢出
+              }}>
+                <img 
+                  src={url} 
+                  style={{
+                    maxWidth: '100%',    // 图片内容不超出容器
+                    maxHeight: '100%',   // 图片高度不超出容器
+                    objectFit: 'contain' // 保持比例显示（两边留黑）
+                  }} 
+                  alt="" 
+                />
+              </div>
             </div>
           );
         }
@@ -111,8 +120,7 @@ export default function Home() {
               {isEmbed ? (
                 <iframe src={url} style={{width:'100%', maxWidth:'800px', height:'450px', border:'none', borderRadius:'8px', background:'#000'}} allowFullScreen />
               ) : (
-                // 保持原有的视频样式，确保是你觉得完美的那个尺寸
-                <video src={url} controls preload="metadata" style={{maxWidth:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} />
+                <video src={url} controls preload="metadata" style={{width:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} />
               )}
             </div>
           );
@@ -179,10 +187,19 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
           </main>
         ) : (
 <main style={s.panel}>
-            <div style={{marginBottom:'20px'}}><label style={s.lab}>标题 *</label><input value={form.title} onChange={e=>setForm({...form, title:e.target.value})} style={s.inp}/></div>
+            <div style={{marginBottom:'20px'}}>
+              <label style={s.lab}>标题 <span style={{color: '#ff4d4f'}}>*</span></label>
+              <input value={form.title} onChange={e=>setForm({...form, title:e.target.value})} style={s.inp}/>
+            </div>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'20px'}}>
-              <div><label style={s.lab}>分类 *</label><input list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} style={s.inp}/><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
-              <div><label style={s.lab}>发布日期 *</label><input type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} style={s.inp}/></div>
+              <div>
+                <label style={s.lab}>分类 <span style={{color: '#ff4d4f'}}>*</span></label>
+                <input list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} style={s.inp}/><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist>
+              </div>
+              <div>
+                <label style={s.lab}>发布日期 <span style={{color: '#ff4d4f'}}>*</span></label>
+                <input type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} style={s.inp}/>
+              </div>
             </div>
             <div style={{marginBottom:'20px'}}><label style={s.lab}>标签</label><input value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} style={s.inp}/><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'#007aff', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
             <div style={{marginBottom:'20px'}}><label style={s.lab}>封面图 URL</label><input value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} style={s.inp}/></div>
