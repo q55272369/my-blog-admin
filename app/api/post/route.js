@@ -33,10 +33,11 @@ function mdToBlocks(markdown) {
 
 export async function GET(request) {
   const id = new URL(request.url).searchParams.get('id');
+  if(!id) return NextResponse.json({ success: false });
   try {
     const page = await notion.pages.retrieve({ page_id: id });
     const mdblocks = await n2m.pageToMarkdown(id);
-    const blocksResponse = await notion.blocks.children.list({ block_id: id });
+    const blocksRes = await notion.blocks.children.list({ block_id: id });
 
     mdblocks.forEach(b => {
       if (b.type === 'callout' && b.parent.includes('LOCK:')) {
@@ -46,7 +47,6 @@ export async function GET(request) {
       }
     });
 
-    const mdString = n2m.toMarkdownString(mdblocks);
     const p = page.properties;
     return NextResponse.json({
       success: true,
@@ -60,11 +60,11 @@ export async function GET(request) {
         status: p.status?.status?.name || 'Published',
         date: p.date?.date?.start || '',
         type: p.type?.select?.name || 'Post',
-        content: mdString.parent,
-        rawBlocks: blocksResponse.results
+        content: n2m.toMarkdownString(mdblocks).parent,
+        rawBlocks: blocksRes.results
       }
     });
-  } catch (error) { return NextResponse.json({ success: false }); }
+  } catch (e) { return NextResponse.json({ success: false }); }
 }
 
 export async function POST(request) {
