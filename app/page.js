@@ -47,7 +47,7 @@ export default function Home() {
       ::-webkit-scrollbar-thumb:hover { background: #555; }
     `;
   }, []);
-  // 🟢 智能媒体渲染组件：修复 Markdown ![](.mp4) 无法预览的问题
+// 🟢 智能媒体渲染组件：图片与视频视觉尺寸完美对齐（自适应宽度+留白）
   const NotionView = ({ blocks }) => (
     <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8'}}>
       {blocks?.map((b, i) => {
@@ -59,12 +59,12 @@ export default function Home() {
         if(type==='paragraph') return <p key={i} style={{margin:'10px 0', minHeight:'1em'}}>{text}</p>;
         if(type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #444', margin:'24px 0'}} />;
         
-        // 🖼️ 图片块处理逻辑（包含“伪装成图片的视频”检测）
+        // 🖼️ 图片块处理逻辑
         if(type==='image') {
           const url = data?.file?.url || data?.external?.url;
           if (!url) return null;
 
-          // 🟢 关键修复：如果链接是 mp4/mov 结尾，强制转为视频播放器
+          // 🟢 视频伪装检测
           const isVideoFile = url.match(/\.(mp4|mov|webm|ogg)(\?|$)/i);
           if (isVideoFile) {
              return (
@@ -74,8 +74,22 @@ export default function Home() {
             );
           }
 
-          // 否则正常渲染图片
-          return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}><img src={url} style={{maxWidth:'100%', maxHeight:'650px', borderRadius:'8px', objectFit:'contain', boxShadow:'0 8px 20px rgba(0,0,0,0.3)'}} alt="" /></div>;
+          // 🟢 图片渲染修正：去掉 width:100% 和黑底，改为 maxWidth，让两边自然留白
+          return (
+            <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
+              <img 
+                src={url} 
+                style={{
+                  maxWidth:'100%',      // 限制最大宽度，防止溢出，但不强制撑满
+                  maxHeight:'500px',    // 高度与视频严格对齐
+                  objectFit:'contain',  
+                  borderRadius:'8px', 
+                  boxShadow:'0 8px 20px rgba(0,0,0,0.3)' // 保持阴影增加立体感
+                }} 
+                alt="" 
+              />
+            </div>
+          );
         }
 
         // 🎬 原生视频与嵌入块处理
@@ -83,7 +97,6 @@ export default function Home() {
           let url = data?.file?.url || data?.external?.url || data?.url;
           if(!url) return null;
 
-          // 判断是否需要 iframe (YouTube/Vimeo/Bilibili/Embed类型)
           const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
           const isBilibili = url.includes('bilibili.com');
           const isEmbed = type === 'embed' || isYoutube || isBilibili;
@@ -98,6 +111,7 @@ export default function Home() {
               {isEmbed ? (
                 <iframe src={url} style={{width:'100%', maxWidth:'800px', height:'450px', border:'none', borderRadius:'8px', background:'#000'}} allowFullScreen />
               ) : (
+                // 保持原有的视频样式，确保是你觉得完美的那个尺寸
                 <video src={url} controls preload="metadata" style={{maxWidth:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} />
               )}
             </div>
@@ -164,7 +178,7 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
             </div>
           </main>
         ) : (
-          <main style={s.panel}>
+<main style={s.panel}>
             <div style={{marginBottom:'20px'}}><label style={s.lab}>标题 *</label><input value={form.title} onChange={e=>setForm({...form, title:e.target.value})} style={s.inp}/></div>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px', marginBottom:'20px'}}>
               <div><label style={s.lab}>分类 *</label><input list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} style={s.inp}/><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
