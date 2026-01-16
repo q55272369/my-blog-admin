@@ -12,10 +12,12 @@ const Icons = {
   Edit: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>,
   Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
   Tutorial: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
-  ChevronDown: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+  ChevronDown: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>,
+  DragHandle: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>,
+  Cloud: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
 };
 
-// --- 2. 样式表 ---
+// --- 2. 全局样式 ---
 const GlobalStyle = () => (
   <style dangerouslySetInnerHTML={{__html: `
     body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
@@ -55,18 +57,26 @@ const GlobalStyle = () => (
     .nav-glider { position: absolute; top: 5px; bottom: 5px; background: greenyellow; border-radius: 40px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1; }
     .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
     .nav-item.active { color: #000; font-weight: bold; }
-    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px; margin-bottom: 10px; position: relative; transition: 0.2s; }
-    .block-card:hover { border-color: greenyellow; transform: translateX(5px); }
+    
+    /* 🟢 积木样式升级：拖拽支持 */
+    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px 15px 15px 35px; margin-bottom: 10px; position: relative; transition: border 0.2s; }
+    .block-card:hover { border-color: greenyellow; }
+    .block-drag-handle { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); cursor: grab; padding: 5px; opacity: 0.5; }
+    .block-drag-handle:hover { opacity: 1; }
     .block-del { position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: #ff4d4f; border-radius: 0 10px 10px 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; cursor: pointer; color: white; }
     .block-card:hover .block-del { opacity: 1; right: -40px; }
     .block-card:hover { margin-right: 40px; }
+    
     .acc-btn { width: 100%; background: #424242; padding: 15px 20px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid #555; color: #fff; margin-bottom: 10px; transition: 0.2s; }
     .acc-btn:hover { border-color: greenyellow; color: greenyellow; }
     .acc-content { overflow: hidden; transition: max-height 0.3s ease; max-height: 0; padding: 0 10px; }
     .acc-content.open { max-height: 500px; padding-bottom: 20px; }
-    .neo-btn { --bg: #000; --hover-bg: #ff90e8; --hover-text: #000; color: #fff; cursor: pointer; border: 1px solid var(--bg); border-radius: 4px; padding: 0.8em 2em; background: var(--bg); transition: 0.2s; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+    
+    /* 🟢 按钮组通用样式 */
+    .neo-btn { --bg: #000; --hover-bg: #ff90e8; --hover-text: #000; color: #fff; cursor: pointer; border: 1px solid var(--bg); border-radius: 4px; padding: 0.8em 2em; background: var(--bg); transition: 0.2s; display: flex; justify-content: center; align-items: center; font-weight: bold; gap: 8px; }
     .neo-btn:hover { color: var(--hover-text); transform: translate(-0.25rem, -0.25rem); background: var(--hover-bg); box-shadow: 0.25rem 0.25rem var(--bg); border-color: var(--hover-bg); }
     .neo-btn:active { transform: translate(0); box-shadow: none; }
+    
     .group { display: flex; line-height: 28px; align-items: center; position: relative; max-width: 240px; }
     .input { font-family: "Montserrat", sans-serif; width: 100%; height: 45px; padding-left: 2.5rem; box-shadow: 0 0 0 1.5px #2b2c37, 0 0 25px -17px #000; border: 0; border-radius: 12px; background-color: #16171d; outline: none; color: #bdbecb; transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1); cursor: text; z-index: 0; }
     .input::placeholder { color: #bdbecb; }
@@ -74,13 +84,13 @@ const GlobalStyle = () => (
     .input:active { transform: scale(0.95); }
     .input:focus { box-shadow: 0 0 0 2.5px #2f303d; }
     .search-icon { position: absolute; left: 1rem; fill: #bdbecb; width: 1rem; height: 1rem; pointer-events: none; z-index: 1; }
+    
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: #202024; }
     ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #555; }
   `}} />
 );
-// 全屏加载
 const FullScreenLoader = () => (<div className="loader-overlay"><div className="loader"><svg viewBox="0 0 200 60" width="200" height="60"><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M20,50 L20,10 L50,10 C65,10 65,30 50,30 L20,30" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M80,50 L80,10 L110,10 C125,10 125,30 110,30 L80,30 M100,30 L120,50" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M140,30 A20,20 0 1,0 180,30 A20,20 0 1,0 140,30" /></svg></div><div className="loader-text">SYSTEM PROCESSING</div></div>);
 
 const AnimatedBtn = ({ text, onClick, style }) => (<button className="animated-button" onClick={onClick} style={style}><svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg><span className="text">{text}</span><span className="circle"></span><svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg></button>);
@@ -94,23 +104,16 @@ const SearchInput = ({ value, onChange }) => (<div className="group"><svg classN
 
 const StepAccordion = ({ step, title, isOpen, onToggle, children }) => (<div><div className="acc-btn" onClick={onToggle}><div style={{fontWeight:'bold'}}><span style={{color:'greenyellow', marginRight:'10px'}}>Step {step}</span>{title}</div><div style={{transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'0.3s'}}><Icons.ChevronDown /></div></div><div className={`acc-content ${isOpen ? 'open' : ''}`}>{children}</div></div>);
 
-// 🟢 核心工具：智能清洗+格式化 (支持多行)
 const cleanAndFormat = (input) => {
   if (!input) return "";
   const lines = input.split('\n').map(line => {
     let raw = line.trim();
     if (!raw) return ""; 
-
-    // 1. 剥离 Markdown 包装
     const mdMatch = raw.match(/(?:!|)?\[.*?\]\((.*?)\)/);
     if(mdMatch) raw = mdMatch[1];
-    
-    // 2. 提取纯净链接 (截止到空格或括号)
     const urlMatch = raw.match(/https?:\/\/[^\s)\]"]+/);
     if(urlMatch) raw = urlMatch[0];
-    
-    // 3. 自动包装媒体 (Video/Image)
-    // 🟢 之前这里被我注释掉了，现在加回来了！
+    // 自动包装
     if (/\.(jpg|jpeg|png|gif|webp|bmp|svg|mp4|mov|webm|ogg|mkv)(\?|$)/i.test(raw)) {
        return `![](${raw})`;
     }
@@ -119,32 +122,60 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
+// 🟢 积木编辑器 (集成拖拽排序 + 新工具栏)
 const BlockBuilder = ({ blocks, setBlocks }) => {
+  const dragItem = useRef();
+  const dragOverItem = useRef();
+
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
-  
-  const updateBlock = (id, val, key='content') => { 
-    setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); 
-  };
-  
+  const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
+
+  // 🟢 拖拽排序逻辑
+  const handleSort = () => {
+    const _blocks = [...blocks];
+    const draggedItemContent = _blocks.splice(dragItem.current, 1)[0];
+    _blocks.splice(dragOverItem.current, 0, draggedItemContent);
+    dragItem.current = null;
+    dragOverItem.current = null;
+    setBlocks(_blocks);
+  };
 
   return (
     <div style={{marginTop:'30px'}}>
-      <div style={{display:'flex', gap:'15px', marginBottom:'25px', justifyContent:'center'}}>
-        <div className="neo-btn" onClick={()=>addBlock('h1')}>H1 标题</div>
-        <div className="neo-btn" onClick={()=>addBlock('text')}>📝 内容块</div>
-        <div className="neo-btn" onClick={()=>addBlock('lock')}>🔒 加密块</div>
+      {/* 🟢 工具栏：左侧网盘，右侧块按钮 */}
+      <div style={{display:'flex', gap:'15px', marginBottom:'25px', justifyContent:'space-between', alignItems:'center'}}>
+        <div className="neo-btn" onClick={()=>window.open("https://x1file.top/home")} style={{background:'#424242', borderColor:'#555'}}>
+          <Icons.Cloud /> 打开云盘
+        </div>
+        <div style={{display:'flex', gap:'15px'}}>
+          <div className="neo-btn" onClick={()=>addBlock('h1')}>H1 标题</div>
+          <div className="neo-btn" onClick={()=>addBlock('text')}>📝 内容块</div>
+          <div className="neo-btn" onClick={()=>addBlock('lock')}>🔒 加密块</div>
+        </div>
       </div>
+
       <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
-        {blocks.map((b) => (
-          <div key={b.id} className="block-card">
+        {blocks.map((b, index) => (
+          <div 
+            key={b.id} 
+            className="block-card"
+            draggable
+            onDragStart={(e) => { dragItem.current = index; }}
+            onDragEnter={(e) => { dragOverItem.current = index; }}
+            onDragEnd={handleSort}
+            onDragOver={(e) => e.preventDefault()}
+          >
+            {/* 🟢 拖拽手柄 */}
+            <div className="block-drag-handle"><Icons.DragHandle /></div>
+            
             <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
             {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
-            {b.type === 'text' && <textarea className="glow-input" placeholder="输入内容或粘贴直链（支持多行，自动转换为媒体）..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
+            {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，直接粘贴多行链接..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
             {b.type === 'lock' && (
                <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
                  <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
-                 <textarea className="glow-input" placeholder="输入内容或粘贴直链..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px', border:'1px dashed #555'}} />
+                 <textarea className="glow-input" placeholder="输入被加密内容..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px', border:'1px dashed #555'}} />
                </div>
             )}
             <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
@@ -173,8 +204,7 @@ const NotionView = ({ blocks }) => (
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
-  const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null), [rawLinks, setRawLinks] = useState(''), [mdLinks, setMdLinks] = useState('');
-  
+  const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null);
   const [navIdx, setNavIdx] = useState(0); 
   const [expandedStep, setExpandedStep] = useState(1);
   const [editorBlocks, setEditorBlocks] = useState([]);
@@ -187,14 +217,12 @@ export default function Home() {
 
   const handleNavClick = (idx) => { setNavIdx(idx); const modes = ['folder','covered','text','gallery']; setViewMode(modes[idx]); setSelectedFolder(null); };
 
-  // 🟢 智能逻辑 (SAVE)：保存时，调用 cleanAndFormat 进行自动转换
+  // 🟢 保存：拼接块
   useEffect(() => {
     if(view !== 'edit') return;
     const newContent = editorBlocks.map(b => {
       let content = b.content || '';
-      if (b.type === 'text' || b.type === 'lock') {
-          content = cleanAndFormat(content); 
-      }
+      if (b.type === 'text' || b.type === 'lock') content = cleanAndFormat(content); 
       if(b.type === 'h1') return `# ${content}`;
       if(b.type === 'lock') return `:::lock ${b.pwd}\n${content}\n:::`;
       return content;
@@ -202,54 +230,44 @@ export default function Home() {
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 智能逻辑 (LOAD)：加载时，剥离格式
+  // 🟢 加载：解析块 (强制按行独立，解决块合并问题)
   const parseContentToBlocks = (md) => {
     if(!md) return [];
     const lines = md.split(/\r?\n/);
     const res = [];
-    let currentText = [];
     let isLock = false, lockPwd = '', lockBody = [];
     
     const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
 
-    const flushText = () => { 
-        if(currentText.length > 0) { 
-            const processedText = currentText.map(stripMd).join('\n');
-            res.push({ id: Date.now() + Math.random(), type: 'text', content: processedText }); 
-            currentText = []; 
-        } 
-    };
-
     for(let line of lines) {
       const t = line.trim();
-      if(t.startsWith(':::lock')) { flushText(); isLock = true; lockPwd = t.replace(':::lock','').trim()||'123'; lockBody = []; continue; }
+      // 加密块逻辑
+      if(t.startsWith(':::lock')) { isLock = true; lockPwd = t.replace(':::lock','').trim()||'123'; lockBody = []; continue; }
       if(isLock && t === ':::') { 
           const rawBody = lockBody.map(stripMd).join('\n');
           res.push({ id: Date.now() + Math.random(), type: 'lock', pwd: lockPwd, content: rawBody }); 
-          isLock = false; 
-          continue; 
+          isLock = false; continue; 
       }
       if(isLock) { lockBody.push(line); continue; }
-      if(t.startsWith('# ')) { flushText(); res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); continue; }
-      currentText.push(line);
+      
+      // 标题
+      if(t.startsWith('# ')) { res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); continue; }
+      
+      // 🟢 普通文本：每一行都是一个独立块
+      if(t) {
+         res.push({ id: Date.now() + Math.random(), type: 'text', content: stripMd(t) });
+      }
     }
-    flushText();
     return res;
   };
 
   const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
-  
   const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setEditorBlocks(parseContentToBlocks(d.data.content)); setCurrentId(p.id); setView('edit'); setExpandedStep(1); } }).finally(()=>setLoading(false)); };
-  
   const handleCreate = () => {
     setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: activeTab, date: new Date().toISOString().split('T')[0] });
-    setEditorBlocks([]); 
-    setCurrentId(null); 
-    setView('edit');
-    setExpandedStep(1);
+    setEditorBlocks([]); setCurrentId(null); setView('edit'); setExpandedStep(1);
   };
 
-  const convertLinks = () => { if(!rawLinks.trim()) return; const lines = rawLinks.split('\n').filter(l => l.trim()); const final = lines.map(l => { const m = l.match(/https?:\/\/[^\s)\]]+/); return m ? m[0] : ''; }).filter(Boolean); if(final.length > 0) { const res = final.join('\n'); setMdLinks(res); setRawLinks(res); } else { alert("未识别到链接"); } };
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
   const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
@@ -292,30 +310,27 @@ export default function Home() {
           </main>
         ) : (
           <main style={{background:'#424242', padding:'30px', borderRadius:'20px', border:'1px solid #555'}}>
-            <StepAccordion step={1} title="基础信息 (必填)" isOpen={expandedStep === 1} onToggle={()=>setExpandedStep(expandedStep===1?0:1)}>
+            {/* 🟢 Step 1: 基础信息 + 摘要 */}
+            <StepAccordion step={1} title="基础信息" isOpen={expandedStep === 1} onToggle={()=>setExpandedStep(expandedStep===1?0:1)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标题 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" value={form.title} onChange={e=>setForm({...form, title:e.target.value})} placeholder="输入文章标题..." /></div>
+               <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>摘要</label><input className="glow-input" value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} placeholder="输入文章摘要..." /></div>
             </StepAccordion>
 
-            <StepAccordion step={2} title="分类与时间 (必填)" isOpen={expandedStep === 2} onToggle={()=>setExpandedStep(expandedStep===2?0:2)}>
+            {/* 🟢 Step 2: 分类时间 */}
+            <StepAccordion step={2} title="分类与时间" isOpen={expandedStep === 2} onToggle={()=>setExpandedStep(expandedStep===2?0:2)}>
                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px'}}>
                  <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>分类 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} placeholder="选择或输入分类" /><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
                  <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>发布日期 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} /></div>
                </div>
             </StepAccordion>
 
-            <StepAccordion step={3} title="元数据与封面" isOpen={expandedStep === 3} onToggle={()=>setExpandedStep(expandedStep===3?0:3)}>
+            {/* 🟢 Step 3: 标签与封面 */}
+            <StepAccordion step={3} title="标签与封面" isOpen={expandedStep === 3} onToggle={()=>setExpandedStep(expandedStep===3?0:3)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'greenyellow', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
-               <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
-               <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>摘要</label><input className="glow-input" value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} /></div>
-            </StepAccordion>
-            
-            <StepAccordion step={4} title="素材工具 (纯链接提取)" isOpen={expandedStep === 4} onToggle={()=>setExpandedStep(expandedStep===4?0:4)}>
-               <div style={{background:'#303030', padding:'15px', borderRadius:'10px'}}>
-                  <div className="neo-btn" onClick={()=>window.open("https://x1file.top/home")} style={{width:'100%', textAlign:'center'}}>📂 打开 Cloudreve 网盘</div>
-                  <div style={{marginTop:'10px', fontSize:'12px', color:'#666', textAlign:'center'}}>* 提示：在上方正文编辑区粘贴直链（支持多行），系统将在保存时自动完成清洗和格式转换。</div>
-               </div>
+               <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
             </StepAccordion>
 
+            {/* 🟢 块编辑器：带网盘按钮和拖拽 */}
             <BlockBuilder blocks={editorBlocks} setBlocks={setEditorBlocks} />
 
             <button onClick={()=>{setLoading(true); fetch('/api/post',{method:'POST', body:JSON.stringify({...form, id:currentId})}).then(()=>{setView('list'); fetchPosts();})}} disabled={!isFormValid} style={{width:'100%', padding:'20px', background:isFormValid?'#fff':'#222', color:isFormValid?'#000':'#666', border:'none', borderRadius:'12px', fontWeight:'bold', fontSize:'16px', marginTop:'40px', cursor:isFormValid?'pointer':'not-allowed', transition:'0.3s'}}>
