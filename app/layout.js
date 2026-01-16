@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
-// --- 1. 图标库 ---
 const Icons = {
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
@@ -15,260 +14,322 @@ const Icons = {
   ChevronDown: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
 };
 
-// --- 2. 样式常量 (杜绝白屏) ---
 const GlobalStyle = () => (
   <style dangerouslySetInnerHTML={{__html: `
     body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
-    .card-item { position: relative; background: #424242; border-radius: 12px; margin-bottom: 12px; border: 1px solid transparent; cursor: pointer; transition: 0.3s; overflow: hidden; display: flex !important; }
-    .card-item:hover { border-color: greenyellow; transform: translateY(-2px); }
-    .drawer { position: absolute; right: -120px; top: 0; bottom: 0; width: 120px; display: flex; transition: 0.3s; z-index: 10; }
+    .card-item { position: relative; background: #424242; border-radius: 12px; margin-bottom: 12px; border: 1px solid transparent; cursor: pointer; transition: 0.3s; overflow: hidden; display: flex !important; flex-direction: row !important; align-items: stretch; }
+    .card-item:hover { border-color: greenyellow; transform: translateY(-2px); background: #4d4d4d; box-shadow: 0 0 10px rgba(173, 255, 47, 0.1); }
+    .drawer { position: absolute; right: -120px; top: 0; bottom: 0; width: 120px; display: flex; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
     .card-item:hover .drawer { right: 0; }
-    .dr-btn { flex: 1; display: flex; align-items: center; justify-content: center; }
+    .dr-btn { flex: 1; display: flex; align-items: center; justify-content: center; color: #fff; transition: 0.2s; }
     .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
-    .modal-box { background: #202024; width: 90%; maxWidth: 900px; height: 90vh; border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; }
-    input, select, textarea { width: 100%; padding: 14px; background: #18181c; border: 1px solid #333; border-radius: 10px; color: #fff; outline: none; }
-    .glow-input:focus { border-color: greenyellow; box-shadow: 0 0 12px rgba(173, 255, 47, 0.3); }
-    .neo-btn { color: #fff; cursor: pointer; border: 1px solid #000; border-radius: 4px; padding: 0.8em 2em; background: #000; transition: 0.2s; font-weight: bold; display: flex; align-items: center; }
-    .neo-btn:hover { color: #000; transform: translate(-4px, -4px); background: greenyellow; box-shadow: 4px 4px 0px #000; }
-    .nav-container { position: relative; background: #202024; border-radius: 50px; padding: 5px; display: flex; gap: 5px; border: 1px solid #333; width: fit-content; }
-    .nav-glider { position: absolute; top: 5px; bottom: 5px; background: greenyellow; border-radius: 40px; transition: 0.3s; z-index: 1; }
-    .nav-item { position: relative; z-index: 2; width: 40px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #888; }
-    .nav-item.active { color: #000; }
-    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px; margin-bottom: 10px; position: relative; transition: 0.2s; overflow: hidden; }
-    .block-del { position: absolute; right: -40px; top: 0; bottom: 0; width: 40px; background: #ff4d4f; display: flex; align-items: center; justify-content: center; transition: 0.2s; cursor: pointer; color: white; }
-    .block-card:hover .block-del { right: 0; }
-    .acc-btn { width: 100%; background: #424242; padding: 15px 20px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid #555; margin-bottom: 10px; }
-    .acc-content { overflow: hidden; transition: max-height 0.3s ease; max-height: 0; }
-    .acc-content.open { max-height: 800px; padding-bottom: 20px; }
-    .loader-overlay { position: fixed; inset: 0; background: rgba(20, 20, 23, 0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+    .modal-box { background: #202024; width: 90%; maxWidth: 900px; height: 90vh; border-radius: 24px; border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+    .modal-body { flex: 1; overflow-y: auto; padding: 40px; scroll-behavior: smooth; }
+    input, select, textarea { width: 100%; padding: 14px; background: #18181c; border: 1px solid #333; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 15px; outline: none; transition: 0.3s; }
+    .glow-input:focus, .glow-input:hover { border-color: greenyellow; box-shadow: 0 0 12px rgba(173, 255, 47, 0.3); background: #1f1f23; }
+    .tag-chip { background: #333; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #bbb; margin: 0 5px 5px 0; cursor: pointer; position: relative; }
+    .tag-del { position: absolute; top: -5px; right: -5px; background: #ff4d4f; color: white; border-radius: 50%; width: 14px; height: 14px; display: none; align-items: center; justify-content: center; font-size: 10px; }
+    .tag-chip:hover .tag-del { display: flex; }
+    .loader-overlay { position: fixed; inset: 0; background: rgba(20, 20, 23, 0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); flex-direction: column; }
+    .loader-text { margin-top: 20px; font-family: monospace; color: #666; font-size: 12px; letter-spacing: 2px; }
+    .loader { display: flex; margin: 0.25em 0; }
     .dash { animation: dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite; }
     @keyframes dashArray { 0% { stroke-dasharray: 0 1 359 0; } 50% { stroke-dasharray: 0 359 1 0; } 100% { stroke-dasharray: 359 1 0 0; } }
     @keyframes dashOffset { 0% { stroke-dashoffset: 365; } 100% { stroke-dashoffset: 5; } }
-    .group { display: flex; align-items: center; position: relative; width: 240px; }
-    .input-search { font-family: inherit; width: 100%; height: 45px; padding-left: 2.5rem; border-radius: 12px; background-color: #16171d; border: 1px solid #2b2c37; color: #bdbecb; outline: none; transition: 0.2s; }
-    .animated-button { position: relative; display: flex; align-items: center; gap: 4px; padding: 12px 30px; border: 2px solid greenyellow; background: none; border-radius: 100px; font-weight: bold; color: greenyellow; cursor: pointer; overflow: hidden; transition: 0.6s; }
-    .animated-button .text { position: relative; z-index: 1; transition: 0.5s; }
-    .animated-button .circle { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 0; height: 0; background: greenyellow; border-radius: 50%; transition: 0.6s; }
-    .animated-button:hover .circle { width: 300px; height: 300px; }
-    .animated-button:hover .text { color: #000; }
+    .animated-button { position: relative; display: flex; align-items: center; gap: 4px; padding: 12px 36px; border: 2px solid; border-color: transparent; font-size: 14px; background-color: inherit; border-radius: 100px; font-weight: 600; color: greenyellow; box-shadow: 0 0 0 2px greenyellow; cursor: pointer; overflow: hidden; transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1); }
+    .animated-button svg { position: absolute; width: 20px; fill: greenyellow; z-index: 9; transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1); }
+    .animated-button .arr-1 { right: 16px; }
+    .animated-button .arr-2 { left: -25%; }
+    .animated-button .circle { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; background-color: greenyellow; border-radius: 50%; opacity: 0; transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1); }
+    .animated-button .text { position: relative; z-index: 1; transform: translateX(-12px); transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1); }
+    .animated-button:hover { box-shadow: 0 0 0 12px transparent; color: #212121; border-radius: 12px; }
+    .animated-button:hover .arr-1 { right: -25%; }
+    .animated-button:hover .arr-2 { left: 16px; }
+    .animated-button:hover .text { transform: translateX(12px); }
+    .animated-button:hover svg { fill: #212121; }
+    .animated-button:active { scale: 0.95; box-shadow: 0 0 0 4px greenyellow; }
+    .animated-button:hover .circle { width: 220px; height: 220px; opacity: 1; }
+    .nav-container { position: relative; background: #202024; border-radius: 50px; padding: 5px; display: flex; align-items: center; gap: 5px; border: 1px solid #333; width: fit-content; }
+    .nav-glider { position: absolute; top: 5px; bottom: 5px; background: greenyellow; border-radius: 40px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1; }
+    .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
+    .nav-item.active { color: #000; font-weight: bold; }
+    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px; margin-bottom: 10px; position: relative; transition: 0.2s; }
+    .block-card:hover { border-color: greenyellow; transform: translateX(5px); }
+    .block-del { position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: #ff4d4f; border-radius: 0 10px 10px 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; cursor: pointer; color: white; }
+    .block-card:hover .block-del { opacity: 1; right: -40px; }
+    .block-card:hover { margin-right: 40px; }
+    .acc-btn { width: 100%; background: #424242; padding: 15px 20px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid #555; color: #fff; margin-bottom: 10px; transition: 0.2s; }
+    .acc-btn:hover { border-color: greenyellow; color: greenyellow; }
+    .acc-content { overflow: hidden; transition: max-height 0.3s ease; max-height: 0; padding: 0 10px; }
+    .acc-content.open { max-height: 500px; padding-bottom: 20px; }
+    .neo-btn { --bg: #000; --hover-bg: #ff90e8; --hover-text: #000; color: #fff; cursor: pointer; border: 1px solid var(--bg); border-radius: 4px; padding: 0.8em 2em; background: var(--bg); transition: 0.2s; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+    .neo-btn:hover { color: var(--hover-text); transform: translate(-0.25rem, -0.25rem); background: var(--hover-bg); box-shadow: 0.25rem 0.25rem var(--bg); border-color: var(--hover-bg); }
+    .neo-btn:active { transform: translate(0); box-shadow: none; }
+    .group { display: flex; line-height: 28px; align-items: center; position: relative; max-width: 240px; }
+    .input { font-family: "Montserrat", sans-serif; width: 100%; height: 45px; padding-left: 2.5rem; box-shadow: 0 0 0 1.5px #2b2c37, 0 0 25px -17px #000; border: 0; border-radius: 12px; background-color: #16171d; outline: none; color: #bdbecb; transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1); cursor: text; z-index: 0; }
+    .input::placeholder { color: #bdbecb; }
+    .input:hover { box-shadow: 0 0 0 2.5px #2f303d, 0px 0px 25px -15px #000; }
+    .input:active { transform: scale(0.95); }
+    .input:focus { box-shadow: 0 0 0 2.5px #2f303d; }
+    .search-icon { position: absolute; left: 1rem; fill: #bdbecb; width: 1rem; height: 1rem; pointer-events: none; z-index: 1; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #202024; }
+    ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
   `}} />
 );
 // 全屏加载
-const FullScreenLoader = () => (
-  <div className="loader-overlay">
-    <div style={{display:'flex'}}><svg viewBox="0 0 200 60" width="200" height="60"><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M20,50 L20,10 L50,10 C65,10 65,30 50,30 L20,30" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M80,50 L80,10 L110,10 C125,10 125,30 110,30 L80,30 M100,30 L120,50" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M140,30 A20,20 0 1,0 180,30 A20,20 0 1,0 140,30" /></svg></div>
-    <div style={{marginTop:20, fontFamily:'monospace', color:'#666', fontSize:12, letterSpacing:2}}>SYSTEM PROCESSING</div>
-  </div>
-);
+const FullScreenLoader = () => (<div className="loader-overlay"><div className="loader"><svg viewBox="0 0 200 60" width="200" height="60"><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M20,50 L20,10 L50,10 C65,10 65,30 50,30 L20,30" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M80,50 L80,10 L110,10 C125,10 125,30 110,30 L80,30 M100,30 L120,50" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M140,30 A20,20 0 1,0 180,30 A20,20 0 1,0 140,30" /></svg></div><div className="loader-text">SYSTEM PROCESSING</div></div>);
 
-// 动画按钮
-const AnimatedBtn = ({ text, onClick }) => (
-  <button className="animated-button" onClick={onClick}>
-    <span className="text">{text}</span>
-    <span className="circle"></span>
-  </button>
-);
+const AnimatedBtn = ({ text, onClick, style }) => (<button className="animated-button" onClick={onClick} style={style}><svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg><span className="text">{text}</span><span className="circle"></span><svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg></button>);
 
-// 滑块导航
 const SlidingNav = ({ activeIdx, onSelect }) => {
   const icons = [Icons.FolderMode, Icons.CoverMode, Icons.TextMode, Icons.GridMode];
-  return (
-    <div className="nav-container">
-      <div className="nav-glider" style={{ left: `${activeIdx * 45 + 5}px`, width: 40 }} />
-      {icons.map((Icon, i) => (
-        <div key={i} className={`nav-item ${activeIdx === i ? 'active' : ''}`} onClick={() => onSelect(i)}><Icon /></div>
-      ))}
-    </div>
-  );
+  return (<div className="nav-container"><div className="nav-glider" style={{ left: `${activeIdx * 45 + 5}px`, width: '40px' }} />{icons.map((Icon, i) => (<div key={i} className={`nav-item ${activeIdx === i ? 'active' : ''}`} onClick={() => onSelect(i)}><Icon /></div>))}</div>);
 };
 
-// 🟢 块编辑器 (彻底修复输入失焦)
+const SearchInput = ({ value, onChange }) => (<div className="group"><svg className="search-icon" aria-hidden="true" viewBox="0 0 24 24"><g><path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z"></path></g></svg><input placeholder="Search" type="search" className="input" value={value} onChange={onChange} /></div>);
+
+const StepAccordion = ({ step, title, isOpen, onToggle, children }) => (<div><div className="acc-btn" onClick={onToggle}><div style={{fontWeight:'bold'}}><span style={{color:'greenyellow', marginRight:'10px'}}>Step {step}</span>{title}</div><div style={{transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'0.3s'}}><Icons.ChevronDown /></div></div><div className={`acc-content ${isOpen ? 'open' : ''}`}>{children}</div></div>);
+
+// 🟢 核心工具：智能清洗+格式化 (支持多行)
+const cleanAndFormat = (input) => {
+  // 1. 提取纯链接 (移除 Markdown 包装, 移除 url 参数)
+  const lines = input.split('\n').map(line => {
+    let raw = line.trim();
+    // 移除 ![]()
+    const mdMatch = raw.match(/\((https?:\/\/[^\)]+)\)/);
+    if(mdMatch) raw = mdMatch[1];
+    // 提取纯净链接 (截止到空格或括号)
+    const urlMatch = raw.match(/https?:\/\/[^\s)\]"]+/);
+    if(urlMatch) raw = urlMatch[0];
+    
+    // 2. 自动格式化
+    // 如果是媒体链接，且未被包装，则自动包装
+    if (/https?:\/\/.*\.(jpg|jpeg|png|gif|webp|mp4|mov|webm|ogg)/i.test(raw)) {
+       return `![](${raw})`;
+    }
+    return raw;
+  });
+  return lines.join('\n');
+};
+
 const BlockBuilder = ({ blocks, setBlocks }) => {
-  const addBlock = (type) => setBlocks([...blocks, { id: Math.random().toString(36).substr(2, 9), type, content: '', pwd: '123' }]);
-  const updateBlock = (id, val, key='content') => {
+  const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
+  
+  // 🟢 更新时自动触发清洗和格式化
+  const updateBlock = (id, val, key='content') => { 
+    // 只有当用户输入的是纯文本且包含 http 时才触发智能逻辑
     let finalVal = val;
     if (key === 'content' && val.includes('http')) {
-        const match = val.match(/https?:\/\/[^\s)\]?]+/);
-        finalVal = match ? match[0] : val;
+       // 这里可以做一些轻量级的处理，或者完全依赖保存时的逻辑
+       // 为了实时体验，我们在输入时不做强替换，只在提取时做（见第3段），或者保留原样
+       // 用户需求是“集成格式转换”，所以我们这里保持原样，让下面的 useEffect 来处理转换
     }
-    setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: finalVal } : b)); 
+    setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); 
   };
+  const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
   return (
-    <div style={{marginTop:30}}>
-      <div style={{display:'flex', gap:15, marginBottom:25, justifyContent:'center'}}>
+    <div style={{marginTop:'30px'}}>
+      <div style={{display:'flex', gap:'15px', marginBottom:'25px', justifyContent:'center'}}>
         <div className="neo-btn" onClick={()=>addBlock('h1')}>H1 标题</div>
         <div className="neo-btn" onClick={()=>addBlock('text')}>📝 内容块</div>
         <div className="neo-btn" onClick={()=>addBlock('lock')}>🔒 加密块</div>
       </div>
-      <div style={{display:'flex', flexDirection:'column', gap:10}}>
+      <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
         {blocks.map((b) => (
           <div key={b.id} className="block-card">
-            <div style={{fontSize:10, color:'greenyellow', marginBottom:5, fontWeight:'bold'}}>{b.type.toUpperCase()} BLOCK</div>
-            {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:20, fontWeight:'bold'}} />}
-            {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文/粘贴链接..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:80}} />}
+            <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
+            {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
+            {b.type === 'text' && <textarea className="glow-input" placeholder="输入内容或粘贴直链（支持多行，自动转换为媒体）..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'80px'}} />}
             {b.type === 'lock' && (
-               <div style={{background:'#202024', padding:10, borderRadius:8}}>
-                 <div style={{display:'flex', gap:10, marginBottom:10}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:80}} /></div>
-                 <textarea className="glow-input" placeholder="加密内容/粘贴链接..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:80, border:'1px dashed #555'}} />
+               <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
+                 <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
+                 <textarea className="glow-input" placeholder="输入内容或粘贴直链..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'80px', border:'1px dashed #555'}} />
                </div>
             )}
-            <div className="block-del" onClick={() => setBlocks(blocks.filter(x => x.id !== b.id))}><Icons.Trash /></div>
+            <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
           </div>
         ))}
-        {blocks.length === 0 && <div style={{textAlign:'center', color:'#666', padding:'40px', border:'2px dashed #444', borderRadius:12}}>👋 请添加模块</div>}
+        {blocks.length === 0 && <div style={{textAlign:'center', color:'#666', padding:'40px', border:'2px dashed #444', borderRadius:'12px'}}>👋 暂无内容，请点击上方按钮添加模块</div>}
       </div>
     </div>
   );
 };
 
-// 预览渲染
 const NotionView = ({ blocks }) => (
-  <div style={{color:'#e1e1e3', fontSize:15, lineHeight:'1.8'}}>
+  <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8'}}>
     {blocks?.map((b, i) => {
       const type = b.type; const data = b[type]; const text = data?.rich_text?.[0]?.plain_text || "";
-      if(type==='heading_1') return <h1 key={i} style={{fontSize:'1.8em', borderBottom:'1px solid #333', paddingBottom:8, margin:'24px 0 12px'}}>{text}</h1>;
+      if(type==='heading_1') return <h1 key={i} style={{fontSize:'1.8em', borderBottom:'1px solid #333', paddingBottom:'8px', margin:'24px 0 12px'}}>{text}</h1>;
       if(type==='paragraph') return <p key={i} style={{margin:'10px 0', minHeight:'1em'}}>{text}</p>;
       if(type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #444', margin:'24px 0'}} />;
-      if(type==='image' || type==='video') { 
-        const url = data?.file?.url || data?.external?.url; if (!url) return null;
-        return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}><div style={{width:'100%', height:'500px', background:'#000', borderRadius:8, display:'flex', justifyContent:'center', alignItems:'center', overflow:'hidden'}}>{type==='video' ? <video src={url} controls style={{maxWidth:'100%', maxHeight:'100%'}} /> : <img src={url} style={{maxWidth:'100%', maxHeight:'100%', objectFit:'contain'}} />}</div></div>;
-      }
-      if(type==='callout') return <div key={i} style={{background:'#2d2d30', padding:20, borderRadius:12, border:'1px solid #3e3e42', display:'flex', gap:15, margin:'20px 0'}}><div style={{fontSize:'1.4em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1}}><div style={{fontWeight:'bold', color:'greenyellow', marginBottom:4}}>{text}</div><div style={{fontSize:12, opacity:0.5}}>[ 加密内容已受保护 ]</div></div></div>;
+      if(type==='image') { const url = data?.file?.url || data?.external?.url; if (!url) return null; const isVideo = url.match(/\.(mp4|mov|webm|ogg)(\?|$)/i); if(isVideo) return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}><div style={{width:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000', display:'flex', justifyContent:'center'}}><video src={url} controls preload="metadata" style={{maxWidth:'100%', maxHeight:'100%'}} /></div></div>; return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}><div style={{width: '100%', height: '500px', background: '#000', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}><img src={url} style={{maxWidth: '100%', maxHeight: '100%', objectFit: 'contain'}} alt="" /></div></div>; }
+      if(type==='video' || type==='embed') { let url = data?.file?.url || data?.external?.url || data?.url; if(!url) return null; const isY = url.includes('youtube')||url.includes('youtu.be'); if(isY){if(url.includes('watch?v='))url=url.replace('watch?v=','embed/');if(url.includes('youtu.be/'))url=url.replace('youtu.be/','www.youtube.com/embed/');} return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>{(type==='embed'||isY)?<iframe src={url} style={{width:'100%',maxWidth:'800px',height:'450px',border:'none',borderRadius:'8px',background:'#000'}} allowFullScreen />:<video src={url} controls style={{width:'100%',maxHeight:'500px',borderRadius:'8px',background:'#000'}}/>}</div>; }
+      if(type==='callout') return <div key={i} style={{background:'#2d2d30', padding:'20px', borderRadius:'12px', border:'1px solid #3e3e42', display:'flex', gap:'15px', margin:'20px 0'}}><div style={{fontSize:'1.4em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1}}><div style={{fontWeight:'bold', color:'greenyellow', marginBottom:'4px'}}>{text}</div><div style={{fontSize:'12px', opacity:0.5}}>[ 加密内容已受保护 ]</div></div></div>;
       return null;
     })}
   </div>
 );
-// 手风琴
-const StepAccordion = ({ step, title, isOpen, onToggle, children }) => (
-  <div>
-    <div className="acc-btn" onClick={onToggle}><div style={{fontWeight:'bold'}}><span style={{color:'greenyellow', marginRight:10}}>Step {step}</span>{title}</div><div style={{transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'0.3s'}}><Icons.ChevronDown /></div></div>
-    <div className={`acc-content ${isOpen ? 'open' : ''}`}>{children}</div>
-  </div>
-);
-
 export default function Home() {
   const [mounted, setMounted] = useState(false);
-  const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
-  const [form, setForm] = useState({ title: '', category: '', tags: '', cover: '', date: '', content: '' }), [currentId, setCurrentId] = useState(null), [navIdx, setNavIdx] = useState(0), [expandedStep, setExpandedStep] = useState(1), [editorBlocks, setEditorBlocks] = useState([]);
+  const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
+  const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null);
+  const [navIdx, setNavIdx] = useState(0); 
+  const [expandedStep, setExpandedStep] = useState(1);
+  const [editorBlocks, setEditorBlocks] = useState([]);
 
-  useEffect(() => { setMounted(true); fetchPosts(); }, []);
-  async function fetchPosts() { setLoading(true); try { const r = await fetch('/api/posts'); const d = await r.json(); if (d.success) { setPosts(d.posts); setOptions(d.options); } } finally { setLoading(false); } }
+  useEffect(() => { setMounted(true); }, []);
+  const isFormValid = form.title.trim() !== '' && form.category.trim() !== '' && form.date !== '';
 
-  // 🟢 智能转换逻辑：保存时多行检测
+  async function fetchPosts() { setLoading(true); try { const r = await fetch('/api/posts'); const d = await r.json(); if (d.success) { setPosts(d.posts || []); setOptions(d.options || { categories: [], tags: [] }); } } finally { setLoading(false); } }
+  useEffect(() => { if (mounted) fetchPosts(); }, [mounted]);
+
+  const handleNavClick = (idx) => { setNavIdx(idx); const modes = ['folder','covered','text','gallery']; setViewMode(modes[idx]); setSelectedFolder(null); };
+
+  // 🟢 智能逻辑：双向转换
+  // 1. 保存前：EditorBlocks -> String (应用清洗+格式化)
   useEffect(() => {
-    if (view !== 'edit') return;
-    const content = editorBlocks.map(b => {
-      let c = b.content || '';
+    if(view !== 'edit') return;
+    const newContent = editorBlocks.map(b => {
+      let content = b.content || '';
+      // 🟢 提交前自动清洗并格式化
       if (b.type === 'text' || b.type === 'lock') {
-          c = c.split('\n').map(l => {
-              const t = l.trim();
-              if (t.startsWith('http') && !t.includes('![')) return `![](${t})`;
-              return l;
-          }).join('\n');
+          content = cleanAndFormat(content); 
       }
-      if(b.type==='h1') return `# ${c}`;
-      if(b.type==='lock') return `:::lock ${b.pwd}\n${c}\n:::`;
-      return c;
+      if(b.type === 'h1') return `# ${content}`;
+      if(b.type === 'lock') return `:::lock ${b.pwd}\n${content}\n:::`;
+      return content;
     }).join('\n');
-    setForm(f => ({ ...f, content }));
-  }, [editorBlocks, view]);
+    setForm(prev => ({ ...prev, content: newContent }));
+  }, [editorBlocks]);
 
-  // 🟢 智能加载逻辑：还原纯链接
+  // 2. 加载后：String -> EditorBlocks (自动剥离格式，只显示链接)
   const parseContentToBlocks = (md) => {
-    if(!md) return []; const lines = md.split(/\r?\n/), res = []; let curText = [], isL = false, lP = '', lB = [];
-    const strip = (s) => { const m = s.match(/^!\[.*\]\((.*)\)$/); return m ? m[1] : s; };
-    const flush = () => { if(curText.length > 0) { res.push({ id: Math.random().toString(36).substr(2, 9), type: 'text', content: curText.map(strip).join('\n') }); curText = []; } };
-    for(let l of lines) {
-      const t = l.trim();
-      if(t.startsWith(':::lock')) { flush(); isL = true; lP = t.replace(':::lock','').trim(); lB = []; continue; }
-      if(isL && t === ':::') { res.push({ id: Math.random().toString(36).substr(2, 9), type: 'lock', pwd: lP, content: lB.map(strip).join('\n') }); isL = false; continue; }
-      if(isL) { lB.push(l); continue; }
-      if(t.startsWith('# ')) { flush(); res.push({ id: Math.random().toString(36).substr(2, 9), type: 'h1', content: t.replace('# ','') }); continue; }
-      curText.push(l);
+    if(!md) return [];
+    const lines = md.split(/\r?\n/);
+    const res = [];
+    let currentText = [];
+    let isLock = false, lockPwd = '', lockBody = [];
+    
+    // 剥离函数： ![]() -> link
+    const stripMd = (str) => { const match = str.match(/^!\[.*\]\((.*)\)$/); return match ? match[1] : str; };
+
+    const flushText = () => { 
+        if(currentText.length > 0) { 
+            const processedText = currentText.map(stripMd).join('\n');
+            res.push({ id: Date.now() + Math.random(), type: 'text', content: processedText }); 
+            currentText = []; 
+        } 
+    };
+
+    for(let line of lines) {
+      const t = line.trim();
+      if(t.startsWith(':::lock')) { flushText(); isLock = true; lockPwd = t.replace(':::lock','').trim()||'123'; lockBody = []; continue; }
+      if(isLock && t === ':::') { 
+          const rawBody = lockBody.map(stripMd).join('\n');
+          res.push({ id: Date.now() + Math.random(), type: 'lock', pwd: lockPwd, content: rawBody }); 
+          isLock = false; 
+          continue; 
+      }
+      if(isLock) { lockBody.push(line); continue; }
+      if(t.startsWith('# ')) { flushText(); res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); continue; }
+      currentText.push(line);
     }
-    flush(); return res;
+    flushText();
+    return res;
   };
-if (!mounted) return null;
+
+  const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
+  
+  const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setEditorBlocks(parseContentToBlocks(d.data.content)); setCurrentId(p.id); setView('edit'); setExpandedStep(1); } }).finally(()=>setLoading(false)); };
+  
+  const handleCreate = () => {
+    setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: activeTab, date: new Date().toISOString().split('T')[0] });
+    setEditorBlocks([]); 
+    setCurrentId(null); 
+    setView('edit');
+    setExpandedStep(1);
+  };
+
+  const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
+
+  const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
+  const displayTags = (options.tags && options.tags.length > 0) ? (showAllTags ? options.tags : options.tags.slice(0, 12)) : [];
+
+  if (!mounted) return null;
 
   return (
     <div style={{ minHeight: '100vh', background: '#303030', padding: '40px 20px' }}>
       <GlobalStyle />
       {loading && <FullScreenLoader />}
       
-      <div style={{ maxWidth: 900, margin: '0 auto' }}>
-        {/* --- Header --- */}
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
-           <div className="group">
-             {view==='list' && (
-               <div style={{position:'relative', width:240}}>
-                 <div style={{position:'absolute', left:12, top:13, color:'#888'}}><Icons.Search /></div>
-                 <input placeholder="搜索内容..." className="input-search" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} style={{paddingLeft:40}} />
-               </div>
-             )}
-           </div>
-           <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
-             <button onClick={() => window.open('https://pan.cloudreve.org/s/xxx')} style={{background:'#a855f7', border:'none', padding:'10px 20px', borderRadius:8, color:'#fff', fontWeight:'bold', fontSize:14, cursor:'pointer'}} className="btn-ia">教程</button>
-             {view === 'list' ? (
-               <AnimatedBtn text="发布新内容" onClick={() => { setForm({ title:'', category:'', tags:'', cover:'', date:new Date().toISOString().split('T')[0], content:'' }); setEditorBlocks([]); setCurrentId(null); setView('edit'); }} />
-             ) : (
-               <AnimatedBtn text="返回列表" onClick={() => setView('list')} />
-             )}
+      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+           <div>{view === 'list' && <SearchInput value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />}</div>
+           <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+             <button onClick={() => window.open('https://pan.cloudreve.org/xxx', '_blank')} style={{background:'#a855f7', border:'none', padding:'10px 20px', borderRadius:'8px', color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', gap:'5px', fontWeight:'bold', fontSize:'14px'}} className="btn-ia"><Icons.Tutorial /> 教程</button>
+             {view === 'list' ? <AnimatedBtn text="发布新内容" onClick={handleCreate} /> : <AnimatedBtn text="返回列表" onClick={() => setView('list')} />}
            </div>
         </header>
 
         {view === 'list' ? (
           <main>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-               <div style={{background:'#424242', padding:5, borderRadius:12, display:'flex'}}>
-                 {['Post', 'Widget'].map(t => <button key={t} onClick={() => { setActiveTab(t); setNavIdx(0); setViewMode('folder'); }} style={activeTab === t ? {padding:'8px 20px', border:'none', background:'#555', color:'#fff', borderRadius:10, fontWeight:'bold', cursor:'pointer'} : {padding:'8px 20px', border:'none', background:'none', color:'#888', borderRadius:10, cursor:'pointer'}}>{t==='Post'?'已发布':'组件'}</button>)}
-               </div>
-               <SlidingNav activeIdx={navIdx} onSelect={(i) => { setNavIdx(i); setViewMode(['folder','covered','text','gallery'][i]); setSelectedFolder(null); }} />
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
+               <div style={{background:'#424242', padding:'5px', borderRadius:'12px', display:'flex'}}>{['Post', 'Widget'].map(t => <button key={t} onClick={() => { setActiveTab(t); setSelectedFolder(null); }} style={activeTab === t ? {padding:'8px 20px', border:'none', background:'#555', color:'#fff', borderRadius:'10px', fontWeight:'bold', fontSize:'13px', cursor:'pointer'} : {padding:'8px 20px', border:'none', background:'none', color:'#888', borderRadius:'10px', fontWeight:'bold', fontSize:'13px', cursor:'pointer'}}>{t === 'Post' ? '已发布' : '组件'}</button>)}</div>
+               <SlidingNav activeIdx={navIdx} onSelect={handleNavClick} />
             </div>
-
-            <div style={viewMode === 'gallery' || viewMode === 'folder' ? {display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:15} : {}}>
-              {viewMode === 'folder' && options.categories.map(cat => <div key={cat} onClick={()=>{setSelectedFolder(cat); setNavIdx(1); setViewMode('covered');}} style={{padding:15, background:'#424242', borderRadius:10, display:'flex', alignItems:'center', gap:12, border:'1px solid #555', cursor:'pointer'}} className="btn-ia"><Icons.FolderIcon />{cat}</div>)}
-              {viewMode !== 'folder' && posts.filter(p => p.type === activeTab && p.title.toLowerCase().includes(searchQuery.toLowerCase()) && (selectedFolder ? p.category === selectedFolder : true)).map(p => (
-                <div key={p.id} onClick={() => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); }} className="card-item" style={viewMode==='text'?{display:'flex', alignItems:'center', padding:'16px 20px', borderRadius:12, background:'#424242', marginBottom:8}:{display:'flex', flexDirection:viewMode==='covered'?'row':'column', background:'#424242', borderRadius:12, marginBottom:12}}>
-                   {viewMode !== 'text' && <div style={{width:viewMode==='covered'?'160px':'100%', height:viewMode==='covered'?'auto':'140px', background:'#303030', display:'flex', alignItems:'center', justifyContent:'center'}}>{p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{fontSize:28, color:'#444'}}>{activeTab[0]}</div>}</div>}
-                   <div style={{padding:viewMode==='covered'?'20px 35px':'15px', flex:1}}><div style={{fontWeight:'bold', fontSize:viewMode==='text'?14:20, color:'#fff'}}>{p.title}</div>{viewMode!=='text' && <div style={{color:'#fff', fontSize:12, opacity:0.8, marginTop:5}}>{p.category} · {p.date}</div>}</div>
-                   <div className="drawer"><div onClick={(e) => { e.stopPropagation(); setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setEditorBlocks(parseContentToBlocks(d.data.content)); setCurrentId(p.id); setView('edit'); setExpandedStep(1); } }).finally(()=>setLoading(false)); }} style={{background:'greenyellow', color:'#000'}} className="dr-btn"><Icons.Edit /></div><div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){setLoading(true); fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())}}} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div></div>
+            
+            <div style={viewMode === 'gallery' || viewMode === 'folder' ? {display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'15px'} : {}}>
+              {viewMode === 'folder' && options.categories.map(cat => <div key={cat} onClick={()=>{setSelectedFolder(cat); handleNavClick(1);}} style={{padding:'15px', background:'#424242', borderRadius:'10px', display:'flex', alignItems:'center', gap:'12px', border:'1px solid #555', cursor:'pointer'}} className="btn-ia"><Icons.FolderIcon />{cat}</div>)}
+              {viewMode !== 'folder' && filtered.map(p => (
+                <div key={p.id} onClick={() => handlePreview(p)} className="card-item" style={viewMode === 'text' ? {display:'flex', alignItems:'center', padding:'16px 20px', borderRadius:'12px', background:'#424242', marginBottom:'8px'} : viewMode === 'gallery' ? {display:'flex', flexDirection:'column', height:'auto', background:'#424242', borderRadius:'12px', marginBottom:'12px'} : {}}>
+                  {viewMode === 'covered' && <><div style={{width:'160px', flexShrink:0, background:'#303030', display:'flex', alignItems:'center', justifyContent:'center'}}>{p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{fontSize:'28px', color:'#444'}}>{activeTab[0]}</div>}</div><div style={{padding:'20px 35px', flex:1}}><div style={{fontWeight:'bold', fontSize:'20px', color:'#fff', marginBottom:'8px'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div></>}
+                  {viewMode === 'text' && <div style={{flex:1, display:'flex', alignItems:'center'}}><div style={{flex:1, fontSize:'14px'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div>}
+                  {viewMode === 'gallery' && <><div style={{height:'140px', background:'#303030', display:'flex', alignItems:'center', justifyContent:'center'}}>{p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{fontSize:'40px', color:'#444'}}>{activeTab[0]}</div>}</div><div style={{padding:'15px'}}><div style={{fontSize:'14px', fontWeight:'bold', color:'#fff'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div></>}
+                  <div className="drawer"><div onClick={(e) => { e.stopPropagation(); handleEdit(p); }} style={{background:'greenyellow', color:'#000'}} className="dr-btn"><Icons.Edit /></div><div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){setLoading(true); fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())}}} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div></div>
                 </div>
               ))}
             </div>
           </main>
         ) : (
-          <main style={{background:'#424242', padding:30, borderRadius:20, border:'1px solid #555'}}>
+<main style={{background:'#424242', padding:'30px', borderRadius:'20px', border:'1px solid #555'}}>
             <StepAccordion step={1} title="基础信息 (必填)" isOpen={expandedStep === 1} onToggle={()=>setExpandedStep(expandedStep===1?0:1)}>
-               <div style={{marginBottom:15}}><label style={{display:'block', fontSize:11, color:'#bbb', marginBottom:5}}>文章标题 <span style={{color:'#ff4d4f'}}>*</span></label><input className="glow-input" value={form.title} onChange={e=>setForm({...form, title:e.target.value})} placeholder="输入标题..." /></div>
+               <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标题 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" value={form.title} onChange={e=>setForm({...form, title:e.target.value})} placeholder="输入文章标题..." /></div>
             </StepAccordion>
+
             <StepAccordion step={2} title="分类与时间 (必填)" isOpen={expandedStep === 2} onToggle={()=>setExpandedStep(expandedStep===2?0:2)}>
-               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20}}>
-                 <div><label style={{display:'block', fontSize:11, color:'#bbb', marginBottom:5}}>分类 <span style={{color:'#ff4d4f'}}>*</span></label><input className="glow-input" list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} /><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
-                 <div><label style={{display:'block', fontSize:11, color:'#bbb', marginBottom:5}}>发布日期 <span style={{color:'#ff4d4f'}}>*</span></label><input className="glow-input" type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} /></div>
+               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px'}}>
+                 <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>分类 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} placeholder="选择或输入分类" /><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
+                 <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>发布日期 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} /></div>
                </div>
             </StepAccordion>
+
             <StepAccordion step={3} title="元数据与封面" isOpen={expandedStep === 3} onToggle={()=>setExpandedStep(expandedStep===3?0:3)}>
-               <div style={{marginBottom:15}}><label style={{display:'block', fontSize:11, color:'#bbb', marginBottom:5}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /></div>
-               <div style={{marginBottom:15}}><label style={{display:'block', fontSize:11, color:'#bbb', marginBottom:5}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:cleanUrl(e.target.value)})} placeholder="粘贴链接或文段..." /></div>
+               <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'greenyellow', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
+               {/* 🟢 封面输入框：失去焦点时自动清洗链接 */}
+               <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
+               <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>摘要</label><input className="glow-input" value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} /></div>
             </StepAccordion>
-            <StepAccordion step={4} title="素材获取" isOpen={expandedStep === 4} onToggle={()=>setExpandedStep(expandedStep===4?0:4)}>
-               <div style={{padding:20, background:'#333', borderRadius:12, textAlign:'center'}}><div className="neo-btn" style={{width:'100%', height:60}} onClick={()=>window.open("https://x1file.top/home")}>前往网盘获取素材直链</div></div>
+            
+            <StepAccordion step={4} title="素材工具" isOpen={expandedStep === 4} onToggle={()=>setExpandedStep(expandedStep===4?0:4)}>
+               <div style={{background:'#303030', padding:'15px', borderRadius:'10px'}}>
+                  {/* 🟢 工具降级：只保留网盘跳转 */}
+                  <div className="neo-btn" onClick={()=>window.open("https://x1file.top/home")} style={{width:'100%', textAlign:'center'}}>📂 打开 Cloudreve 网盘</div>
+                  <div style={{marginTop:'10px', fontSize:'12px', color:'#666', textAlign:'center'}}>* 在上方正文编辑区粘贴链接，系统将自动进行清洗和格式转换。</div>
+               </div>
             </StepAccordion>
+
             <BlockBuilder blocks={editorBlocks} setBlocks={setEditorBlocks} />
-            <button onClick={()=>{setLoading(true); fetch('/api/post',{method:'POST', body:JSON.stringify({...form, id:currentId, type:activeTab})}).then(()=>{setView('list'); fetchPosts();})}} disabled={!form.title||!form.category} style={{width:'100%', padding:20, background:(form.title&&form.category)?'#fff':'#222', color:(form.title&&form.category)?'#000':'#666', border:'none', borderRadius:12, fontWeight:'bold', fontSize:16, marginTop:40, cursor:'pointer'}}>
+
+            <button onClick={()=>{setLoading(true); fetch('/api/post',{method:'POST', body:JSON.stringify({...form, id:currentId})}).then(()=>{setView('list'); fetchPosts();})}} disabled={!isFormValid} style={{width:'100%', padding:'20px', background:isFormValid?'#fff':'#222', color:isFormValid?'#000':'#666', border:'none', borderRadius:'12px', fontWeight:'bold', fontSize:'16px', marginTop:'40px', cursor:isFormValid?'pointer':'not-allowed', transition:'0.3s'}}>
                {currentId ? '保存修改' : '确认发布'}
             </button>
           </main>
         )}
-        {previewData && (
-          <div className="modal-bg" onClick={()=>setPreviewData(null)}>
-            <div className="modal-box" onClick={e=>e.stopPropagation()}>
-              <div style={{padding:'20px 25px', borderBottom:'1px solid #333', display:'flex', justifyContent:'space-between', alignItems:'center'}}><strong>预览: {previewData.title}</strong><button onClick={()=>setPreviewData(null)} style={{background:'none', border:'none', color:'#666', fontSize:24, cursor:'pointer'}}>×</button></div>
-              <div className="modal-body" style={{background:'#1a1a1e'}}><NotionView blocks={previewData.rawBlocks} /></div>
-            </div>
-          </div>
-        )}
+        
+        {previewData && <div className="modal-bg" onClick={()=>setPreviewData(null)}><div className="modal-box" onClick={e=>e.stopPropagation()}><div style={{padding:'20px 25px', borderBottom:'1px solid #333', display:'flex', justifyContent:'space-between', alignItems:'center'}}><strong>预览: {previewData.title}</strong><button onClick={()=>setPreviewData(null)} style={{background:'none', border:'none', color:'#666', fontSize:'24px', cursor:'pointer'}}>×</button></div><div className="modal-body"><NotionView blocks={previewData.rawBlocks} /></div></div></div>}
       </div>
     </div>
   );
