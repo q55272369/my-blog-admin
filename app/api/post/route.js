@@ -9,7 +9,7 @@ const n2m = new NotionToMarkdown({ notionClient: notion });
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function mdToBlocks(markdown) {
-  // 1. 先按双换行符分割成大块 (Block)
+  // 🟢 核心修复：先按双换行切割成“大块”，保持块的数量与用户意图一致
   const rawBlocks = markdown.split(/\n{2,}/); 
   const blocks = [];
   let isLocking = false; 
@@ -17,53 +17,65 @@ function mdToBlocks(markdown) {
   let lockContent = [];
 
   for (let rawBlock of rawBlocks) {
-    // 2. 再处理每一块内部的行
-    const lines = rawBlock.split(/\r?\n/);
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmed = line.trim();
+    const trimmedBlock = rawBlock.trim();
+    if (!trimmedBlock) continue;
 
-      // --- 加密块逻辑 (保持不变) ---
-      if (trimmed.startsWith(':::lock')) { 
-        isLocking = true; 
-        lockPassword = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123'; 
-        lockContent = []; 
-        continue; 
-      }
-      if (isLocking && trimmed === ':::') {
-        blocks.push({ 
-          object: 'block', type: 'callout', 
-          callout: { 
-            rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }], 
-            icon: { type: "emoji", emoji: "🔒" }, color: "gray_background", 
-            children: [ { object: 'block', type: 'divider', divider: {} }, ...mdToBlocks(lockContent.join('\n\n')) ] 
-          } 
-        });
-        isLocking = false; continue;
-      }
-      if (isLocking) { if (trimmed) lockContent.push(line); continue; }
+    // --- 加密块逻辑 ---
+    if (trimmedBlock.startsWith(':::lock')) { 
+      // 提取密码，剩下的部分作为内容开始
+      const firstLineEnd = trimmedBlock.indexOf('\n');
+      const header = trimmedBlock.substring(0, firstLineEnd > -1 ? firstLineEnd : trimmedBlock.length);
       
-      if (!trimmed) continue;
-
-      // --- 媒体识别 ---
-      const mediaMatch = trimmed.match(/(?:!|)?\[.*?\]\((.*?)\)/);
-      if (mediaMatch) { 
-        let url = mediaMatch[1].trim();
-        const safeUrl = url.includes('%') ? url : encodeURI(url);
-        const isVideo = url.match(/\.(mp4|mov|webm|ogg|mkv)(\?|$)/i);
-        if (isVideo) {
-          blocks.push({ object: 'block', type: 'video', video: { type: 'external', external: { url: safeUrl } } });
-        } else {
-          blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: safeUrl } } });
-        }
-        continue; 
+      isLocking = true; 
+      lockPassword = header.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123'; 
+      
+      // 如果这一块里不仅仅有头，还有内容，先存起来
+      if (firstLineEnd > -1) {
+        lockContent.push(trimmedBlock.substring(firstLineEnd + 1));
       }
+      continue; 
+    }
 
-      // --- 文本处理 ---
-      if (trimmed.startsWith('# ')) { blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } }); } 
-      else if (trimmed.startsWith('## ')) { blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ text: { content: trimmed.replace('## ', '') } }] } }); } 
-      else { blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: line } }] } }); }
+    if (isLocking && trimmedBlock === ':::') {
+      blocks.push({ 
+        object: 'block', type: 'callout', 
+        callout: { 
+          rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }], 
+          icon: { type: "emoji", emoji: "🔒" }, color: "gray_background", 
+          children: [ { object: 'block', type: 'divider', divider: {} }, ...mdToBlocks(lockContent.join('\n\n')) ] 
+        } 
+      });
+      isLocking = false; 
+      lockContent = [];
+      continue;
+    }
+
+    if (isLocking) { 
+      lockContent.push(trimmedBlock); 
+      continue; 
+    }
+
+    // --- 媒体识别 (支持 ![]() 和 []) ---
+    const mediaMatch = trimmedBlock.match(/(?:!|)?\[.*?\]\((.*?)\)/);
+    if (mediaMatch) { 
+      let url = mediaMatch[1].trim();
+      const safeUrl = url.includes('%') ? url : encodeURI(url);
+      const isVideo = url.match(/\.(mp4|mov|webm|ogg|mkv)(\?|$)/i);
+      
+      if (isVideo) {
+        blocks.push({ object: 'block', type: 'video', video: { type: 'external', external: { url: safeUrl } } });
+      } else {
+        blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: safeUrl } } });
+      }
+      continue; 
+    }
+
+    // --- 文本处理 ---
+    if (trimmedBlock.startsWith('# ')) { 
+      blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmedBlock.replace('# ', '') } }] } }); 
+    } else { 
+      // 🟢 普通文本：直接作为一个段落块，保留内部换行
+      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: trimmedBlock } }] } }); 
     }
   }
   return blocks;
@@ -84,15 +96,13 @@ export async function GET(request) {
         const pwd = b.parent.match(/LOCK:([a-zA-Z0-9]+)/)?.[1] || '123';
         const parts = b.parent.split('---');
         let body = parts.length > 1 ? parts.slice(1).join('---') : parts[0].replace(/LOCK:.*\n?/, '');
-        body = body.replace(/^>[ \t]*/gm, '').trim(); // 只去引用符，保留内部换行结构
-        b.parent = `:::lock ${pwd}\n${body}\n:::`;
+        body = body.replace(/^>[ \t]*/gm, '').trim(); 
+        b.parent = `:::lock ${pwd}\n\n${body}\n\n:::`; // 🟢 增加换行，确保分隔清晰
       }
     });
 
     const mdStringObj = n2m.toMarkdownString(mdblocks);
-    
-    // 🟢 关键修改：不再强行压缩成单换行，保留段落间的双换行结构
-    // 这里的 trim() 只是去掉首尾空白，保留中间结构
+    // 🟢 保持原始结构，不随意压缩
     let cleanContent = mdStringObj.parent.trim();
 
     const p = page.properties;
