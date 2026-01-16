@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
+// --- 1. 图标库 ---
 const Icons = {
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
@@ -16,6 +17,7 @@ const Icons = {
   Cloud: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
 };
 
+// --- 2. 全局样式 ---
 const GlobalStyle = () => (
   <style dangerouslySetInnerHTML={{__html: `
     body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
@@ -59,15 +61,16 @@ const GlobalStyle = () => (
     /* 🟢 积木拖拽终极修复 */
     .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; transition: border 0.2s, transform 0.2s; cursor: default; }
     .block-card:hover { border-color: greenyellow; }
-    .block-card.dragging { opacity: 0.3; background: #1a1a1d; border: 1px dashed greenyellow; }
+    .block-card.dragging { opacity: 0.2; transform: scale(0.98); border: 2px dashed greenyellow; }
     
     /* 手柄样式：位于左侧，鼠标放上去是 Grab */
     .block-drag-handle { 
-        position: absolute; left: 0; top: 0; bottom: 0; width: 40px; 
+        position: absolute; left: 0; top: 0; bottom: 0; width: 45px; 
         display: flex; align-items: center; justify-content: center;
-        cursor: grab; color: #666; transition: 0.2s; 
+        cursor: grab; color: #666; transition: 0.2s; z-index: 10;
+        border-right: 1px solid transparent;
     }
-    .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); }
+    .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); border-right: 1px solid #333; }
     .block-drag-handle:active { cursor: grabbing; }
 
     /* 绿线指示器：加粗，带发光 */
@@ -114,7 +117,6 @@ const SearchInput = ({ value, onChange }) => (<div className="group"><svg classN
 
 const StepAccordion = ({ step, title, isOpen, onToggle, children }) => (<div><div className="acc-btn" onClick={onToggle}><div style={{fontWeight:'bold'}}><span style={{color:'greenyellow', marginRight:'10px'}}>Step {step}</span>{title}</div><div style={{transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'0.3s'}}><Icons.ChevronDown /></div></div><div className={`acc-content ${isOpen ? 'open' : ''}`}>{children}</div></div>);
 
-// 🟢 核心：恢复了媒体自动包装逻辑
 const cleanAndFormat = (input) => {
   if (!input) return "";
   const lines = input.split('\n').map(line => {
@@ -124,8 +126,6 @@ const cleanAndFormat = (input) => {
     if(mdMatch) raw = mdMatch[1];
     const urlMatch = raw.match(/https?:\/\/[^\s)\]"]+/);
     if(urlMatch) raw = urlMatch[0];
-    
-    // 自动包装媒体
     if (/\.(jpg|jpeg|png|gif|webp|bmp|svg|mp4|mov|webm|ogg|mkv)(\?|$)/i.test(raw)) {
        return `![](${raw})`;
     }
@@ -134,6 +134,7 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
+// 🟢 拖拽修复版 BlockBuilder
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
@@ -142,28 +143,21 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
-  // 🟢 拖拽开始：检查是否按住了手柄
   const handleDragStart = (e, index) => {
+    // 🟢 关键：只有点击手柄才允许拖拽
     if (!e.target.closest('.block-drag-handle')) {
-      e.preventDefault(); // 不是手柄，禁止拖拽，允许选文字
+      e.preventDefault();
       return;
     }
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = "move";
-    // 设置幽灵图像 (可选)
   };
 
   const handleDragOver = (e, index) => {
     e.preventDefault();
-    // 自动滚动
-    if (e.clientY < 150) window.scrollBy(0, -5);
-    if (e.clientY > window.innerHeight - 150) window.scrollBy(0, 5);
-    
+    if (e.clientY < 150) window.scrollBy(0, -10);
+    if (e.clientY > window.innerHeight - 150) window.scrollBy(0, 10);
     if (dragOverIndex !== index) setDragOverIndex(index);
-  };
-
-  const handleDragLeave = () => {
-    // 暂时不做清理，防止闪烁
   };
 
   const handleDrop = () => {
@@ -194,16 +188,17 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
             
             <div 
               className={`block-card ${draggedIndex === index ? 'dragging' : ''}`}
-              draggable="true"
+              draggable="true" 
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={handleDrop}
             >
+              {/* 拖拽手柄 */}
               <div className="block-drag-handle"><Icons.DragHandle /></div>
               <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
               
               {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
-              {b.type === 'text' && <textarea className="glow-input" placeholder="输入内容或粘贴直链（支持多行，自动转换为媒体）..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
+              {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，直接粘贴多行链接..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
               {b.type === 'lock' && (
                  <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
                    <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
@@ -260,38 +255,64 @@ export default function Home() {
       let content = b.content || '';
       if (b.type === 'text' || b.type === 'lock') content = cleanAndFormat(content); 
       if(b.type === 'h1') return `# ${content}`;
-      if(b.type === 'lock') return `:::lock ${b.pwd}\n${content}\n:::`;
+      if(b.type === 'lock') return `:::lock ${b.pwd}\n\n${content}\n\n:::`; // 🟢 加密块内部双换行
       return content;
     }).join('\n\n'); 
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 加载：使用双换行解析块 (保持块完整性)
+  // 🟢 加载：智能缝合逻辑 (修复加密块消失)
   const parseContentToBlocks = (md) => {
     if(!md) return [];
-    const rawBlocks = md.split(/\n{2,}/); // 关键！
+    const rawChunks = md.split(/\n{2,}/);
     const res = [];
     
+    // 缝合算法
+    let mergedBlocks = [];
+    let buffer = "";
+    let mergingLock = false;
+
+    for (let chunk of rawChunks) {
+        const t = chunk.trim();
+        if (!t) continue;
+
+        if (!mergingLock && t.startsWith(':::lock')) {
+            if (t.endsWith(':::')) {
+                mergedBlocks.push(t);
+            } else {
+                mergingLock = true;
+                buffer = t;
+            }
+        } else if (mergingLock) {
+            buffer += "\n\n" + t;
+            if (t.endsWith(':::')) {
+                mergingLock = false;
+                mergedBlocks.push(buffer);
+                buffer = "";
+            }
+        } else {
+            mergedBlocks.push(t);
+        }
+    }
+    if (mergingLock && buffer) mergedBlocks.push(buffer);
+
     const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
 
-    for(let rawBlock of rawBlocks) {
-      let t = rawBlock.trim();
-      if(!t) continue;
-
-      if(t.startsWith(':::lock')) { 
-        const pwd = t.match(/:::lock\s+(.*?)\n/)?.[1] || '123';
-        const content = t.replace(/:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
+    for(let block of mergedBlocks) {
+      if(block.startsWith(':::lock')) { 
+        const pwd = block.match(/:::lock\s+(.*?)\n/)?.[1] || '123';
+        let content = block.replace(/^:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
         const strippedContent = content.split('\n').map(stripMd).join('\n');
         res.push({ id: Date.now() + Math.random(), type: 'lock', pwd, content: strippedContent });
         continue;
       }
       
-      if(t.startsWith('# ')) { 
-        res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); 
+      if(block.startsWith('# ')) { 
+        res.push({ id: Date.now() + Math.random(), type: 'h1', content: block.replace('# ','') }); 
         continue; 
       }
       
-      const strippedContent = t.split('\n').map(stripMd).join('\n');
+      const strippedContent = block.split('\n').map(stripMd).join('\n');
       res.push({ id: Date.now() + Math.random(), type: 'text', content: strippedContent });
     }
     return res;
