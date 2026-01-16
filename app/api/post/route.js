@@ -8,57 +8,18 @@ const n2m = new NotionToMarkdown({ notionClient: notion });
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function mdToBlocks(markdown) {
-  // 🟢 核心修复：先按双换行切割成“大块”，保持块的数量与用户意图一致
-  const rawBlocks = markdown.split(/\n{2,}/); 
+// 🔄 递归解析函数：确保多行内容被正确转换为多个 Notion 积木
+function parseLinesToNotionBlocks(textLines) {
   const blocks = [];
-  let isLocking = false; 
-  let lockPassword = ''; 
-  let lockContent = [];
+  for (let line of textLines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
 
-  for (let rawBlock of rawBlocks) {
-    const trimmedBlock = rawBlock.trim();
-    if (!trimmedBlock) continue;
-
-    // --- 加密块逻辑 ---
-    if (trimmedBlock.startsWith(':::lock')) { 
-      // 提取密码，剩下的部分作为内容开始
-      const firstLineEnd = trimmedBlock.indexOf('\n');
-      const header = trimmedBlock.substring(0, firstLineEnd > -1 ? firstLineEnd : trimmedBlock.length);
-      
-      isLocking = true; 
-      lockPassword = header.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123'; 
-      
-      // 如果这一块里不仅仅有头，还有内容，先存起来
-      if (firstLineEnd > -1) {
-        lockContent.push(trimmedBlock.substring(firstLineEnd + 1));
-      }
-      continue; 
-    }
-
-    if (isLocking && trimmedBlock === ':::') {
-      blocks.push({ 
-        object: 'block', type: 'callout', 
-        callout: { 
-          rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }], 
-          icon: { type: "emoji", emoji: "🔒" }, color: "gray_background", 
-          children: [ { object: 'block', type: 'divider', divider: {} }, ...mdToBlocks(lockContent.join('\n\n')) ] 
-        } 
-      });
-      isLocking = false; 
-      lockContent = [];
-      continue;
-    }
-
-    if (isLocking) { 
-      lockContent.push(trimmedBlock); 
-      continue; 
-    }
-
-    // --- 媒体识别 (支持 ![]() 和 []) ---
-    const mediaMatch = trimmedBlock.match(/(?:!|)?\[.*?\]\((.*?)\)/);
-    if (mediaMatch) { 
+    // 1. 媒体识别 (支持 ![]() 和 [])
+    const mediaMatch = trimmed.match(/(?:!|)?\[.*?\]\((.*?)\)/);
+    if (mediaMatch) {
       let url = mediaMatch[1].trim();
+      // 防止二次编码
       const safeUrl = url.includes('%') ? url : encodeURI(url);
       const isVideo = url.match(/\.(mp4|mov|webm|ogg|mkv)(\?|$)/i);
       
@@ -67,15 +28,91 @@ function mdToBlocks(markdown) {
       } else {
         blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: safeUrl } } });
       }
-      continue; 
+      continue;
     }
 
-    // --- 文本处理 ---
-    if (trimmedBlock.startsWith('# ')) { 
-      blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmedBlock.replace('# ', '') } }] } }); 
-    } else { 
-      // 🟢 普通文本：直接作为一个段落块，保留内部换行
-      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: trimmedBlock } }] } }); 
+    // 2. 标题与文本
+    if (trimmed.startsWith('# ')) {
+      blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } });
+    } else if (trimmed.startsWith('## ')) {
+      blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ text: { content: trimmed.replace('## ', '') } }] } });
+    } else {
+      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: trimmed } }] } });
+    }
+  }
+  return blocks;
+}
+
+function mdToBlocks(markdown) {
+  // 1. 先按双换行符分割成“逻辑大块” (对应编辑器里的一个块)
+  const rawChunks = markdown.split(/\n{2,}/); 
+  const blocks = [];
+  
+  let isLocking = false; 
+  let lockPassword = ''; 
+  let lockBufferLines = [];
+
+  for (let chunk of rawChunks) {
+    const chunkLines = chunk.split(/\r?\n/);
+    
+    // 如果处于加密模式，所有内容（包括空行）都暂时存入 buffer
+    if (isLocking) {
+        // 检查这一块里是否有 ::: 结束符
+        const endIdx = chunkLines.findIndex(l => l.trim() === ':::');
+        
+        if (endIdx !== -1) {
+            // 找到了结束符
+            lockBufferLines.push(...chunkLines.slice(0, endIdx));
+            // 生成 Callout 块
+            blocks.push({ 
+                object: 'block', type: 'callout', 
+                callout: { 
+                  rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }], 
+                  icon: { type: "emoji", emoji: "🔒" }, color: "gray_background", 
+                  children: [ 
+                      { object: 'block', type: 'divider', divider: {} }, 
+                      ...parseLinesToNotionBlocks(lockBufferLines) // 递归解析内部内容
+                  ] 
+                } 
+            });
+            isLocking = false;
+            lockPassword = '';
+            lockBufferLines = [];
+            
+            // 处理结束符后面的内容（如果有）
+            const remaining = chunkLines.slice(endIdx + 1);
+            if (remaining.length > 0) blocks.push(...parseLinesToNotionBlocks(remaining));
+        } else {
+            // 没找到结束符，整个块都是加密内容
+            lockBufferLines.push(...chunkLines);
+        }
+        continue;
+    }
+
+    // 普通模式检查
+    for (let i = 0; i < chunkLines.length; i++) {
+        const line = chunkLines[i];
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith(':::lock')) {
+            isLocking = true;
+            lockPassword = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
+            // 将这一行之后的内容加入 buffer
+            // 注意：因为我们是按行遍历，lock 开启后的行会在下一次循环或外层处理
+            continue;
+        }
+        
+        if (trimmed === ':::') {
+            // 异常情况：单独的结束符，忽略
+            continue;
+        }
+
+        // 如果不是加密块的一部分，直接解析
+        // 注意：这里我们把整个 chunk 剩下的部分一起解析，避免打断
+        // 但为了简单，我们收集普通行，直到遇到 lock
+        if (!isLocking) {
+             blocks.push(...parseLinesToNotionBlocks([line]));
+        }
     }
   }
   return blocks;
@@ -87,9 +124,8 @@ export async function GET(request) {
   try {
     const page = await notion.pages.retrieve({ page_id: id });
     const mdblocks = await n2m.pageToMarkdown(id);
-    
     let rawBlocks = [];
-    try { const blocksRes = await notion.blocks.children.list({ block_id: id }); rawBlocks = blocksRes.results; } catch (e) { console.error(e); }
+    try { const blocksRes = await notion.blocks.children.list({ block_id: id }); rawBlocks = blocksRes.results; } catch (e) {}
 
     mdblocks.forEach(b => {
       if (b.type === 'callout' && b.parent.includes('LOCK:')) {
@@ -97,12 +133,12 @@ export async function GET(request) {
         const parts = b.parent.split('---');
         let body = parts.length > 1 ? parts.slice(1).join('---') : parts[0].replace(/LOCK:.*\n?/, '');
         body = body.replace(/^>[ \t]*/gm, '').trim(); 
-        b.parent = `:::lock ${pwd}\n\n${body}\n\n:::`; // 🟢 增加换行，确保分隔清晰
+        b.parent = `:::lock ${pwd}\n\n${body}\n\n:::`;
       }
     });
 
     const mdStringObj = n2m.toMarkdownString(mdblocks);
-    // 🟢 保持原始结构，不随意压缩
+    // 🟢 保持原始结构，前端负责合并
     let cleanContent = mdStringObj.parent.trim();
 
     const p = page.properties;
