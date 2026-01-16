@@ -6,6 +6,9 @@ export const runtime = 'edge';
 const notion = new Client({ auth: process.env.NOTION_KEY });
 const n2m = new NotionToMarkdown({ notionClient: notion });
 
+// 💤 辅助函数：延时器 (给 Notion 服务器喘息时间)
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // 🔄 辅助函数：将 Markdown 文本转换为 Notion 积木
 function mdToBlocks(markdown) {
   const lines = markdown.split(/\r?\n/);
@@ -45,24 +48,24 @@ function mdToBlocks(markdown) {
       continue;
     }
 
-    // --- 🟢 修复核心：收集加密内容时，主动丢弃空行 ---
     if (isLocking) { 
-      // 只有当行内有内容时才收集，彻底杜绝 Notion 内部产生空积木
-      if (trimmed) {
-        lockContent.push(line); 
-      }
+      if (trimmed) lockContent.push(line); 
       continue; 
     }
 
-    // --- 普通内容处理 ---
-    if (!trimmed) continue; // 普通区域也丢弃空行
+    if (!trimmed) continue;
 
+    // 🟢 媒体处理：自动编码 URL 防止特殊字符导致 Notion 抓取失败
     const imgMatch = trimmed.match(/!\[.*\]\((.*)\)/);
     if (imgMatch) { 
-      blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: imgMatch[1].trim() } } }); 
+      const url = imgMatch[1].trim();
+      // 简单的 URL 编码处理（处理中文或空格），但保留 http 结构
+      const safeUrl = encodeURI(url);
+      blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: safeUrl } } }); 
       continue; 
     }
 
+    // 标题
     if (trimmed.startsWith('# ')) { 
       blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } }); 
     } else if (trimmed.startsWith('## ')) {
@@ -83,7 +86,6 @@ export async function GET(request) {
     const page = await notion.pages.retrieve({ page_id: id });
     const mdblocks = await n2m.pageToMarkdown(id);
     
-    // 获取原始 blocks 用于前端预览
     let rawBlocks = [];
     try {
       const blocksRes = await notion.blocks.children.list({ block_id: id });
@@ -95,20 +97,13 @@ export async function GET(request) {
         const pwd = b.parent.match(/LOCK:([a-zA-Z0-9]+)/)?.[1] || '123';
         const parts = b.parent.split('---');
         let body = parts.length > 1 ? parts.slice(1).join('---') : parts[0].replace(/LOCK:.*\n?/, '');
-        
-        // 🟢 修复核心：更强力的清洗逻辑
-        // 1. 去除引用符号 > 及其后的空白
         body = body.replace(/^>[ \t]*/gm, '');
-        // 2. 将“换行+空白+换行”替换为“单换行”，这能同时处理 \n\n 和 \n  \n
         body = body.replace(/\n\s*\n/g, '\n').trim();
-        
         b.parent = `:::lock ${pwd}\n${body}\n:::`;
       }
     });
 
     const mdStringObj = n2m.toMarkdownString(mdblocks);
-    
-    // 全局紧凑化：将所有连续空行压扁
     let cleanContent = mdStringObj.parent.replace(/\n\s*\n/g, '\n').trim();
 
     const p = page.properties;
@@ -137,6 +132,7 @@ export async function POST(request) {
     const { id, title, content, slug, excerpt, category, tags, cover, status, date, type } = body;
     const dbId = process.env.NOTION_DATABASE_ID;
     const newBlocks = mdToBlocks(content);
+    
     const props = {
       "title": { title: [{ text: { content: title } }] },
       "slug": { rich_text: [{ text: { content: slug } }] },
@@ -149,12 +145,31 @@ export async function POST(request) {
       "type": { select: { name: type || "Post" } }
     };
     if (cover) props["cover"] = { url: cover };
+    
     if (id) {
+      // 1. 更新属性
       await notion.pages.update({ page_id: id, properties: props });
+      
+      // 2. 获取旧块并删除
       const children = await notion.blocks.children.list({ block_id: id });
-      for (const b of children.results) { await notion.blocks.delete({ block_id: b.id }); }
-      for (let i = 0; i < newBlocks.length; i += 20) {
-        await notion.blocks.children.append({ block_id: id, children: newBlocks.slice(i, i + 20) });
+      // 🟢 优化：并发删除以提高速度，但在删除完所有后再继续
+      await Promise.all(children.results.map(b => notion.blocks.delete({ block_id: b.id })));
+      
+      // 🟢 关键优化：删除后强制暂停 1 秒，确保 Notion 数据库索引更新完毕
+      await sleep(1000); 
+
+      // 3. 分批写入新块 (优化：更小的批次 + 间隔时间)
+      // Notion 官方建议不超过 100，但为了媒体稳定，我们将批次设为 10
+      const chunkSize = 10; 
+      for (let i = 0; i < newBlocks.length; i += chunkSize) {
+        await notion.blocks.children.append({ 
+          block_id: id, 
+          children: newBlocks.slice(i, i + chunkSize) 
+        });
+        // 🟢 关键优化：每写入一批，暂停 300ms，给 Notion 抓取媒体的时间
+        if (i + chunkSize < newBlocks.length) {
+          await sleep(300);
+        }
       }
     } else {
       await notion.pages.create({ parent: { database_id: dbId }, properties: props, children: newBlocks.slice(0, 50) });
