@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
+// --- 1. 图标库 ---
 const Icons = {
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
@@ -14,6 +15,7 @@ const Icons = {
   ChevronDown: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
 };
 
+// --- 2. 样式表 ---
 const GlobalStyle = () => (
   <style dangerouslySetInnerHTML={{__html: `
     body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
@@ -97,18 +99,24 @@ const cleanAndFormat = (input) => {
   if (!input) return "";
   const lines = input.split('\n').map(line => {
     let raw = line.trim();
-    // 1. 剥离 Markdown 包装 (包括 ![]() 和 []())
+    if (!raw) return ""; 
+
+    // 1. 剥离 Markdown 包装
     const mdMatch = raw.match(/(?:!|)?\[.*?\]\((.*?)\)/);
     if(mdMatch) raw = mdMatch[1];
     
-    // 2. 提取纯净链接
+    // 2. 提取纯净链接 (截止到空格或括号)
     const urlMatch = raw.match(/https?:\/\/[^\s)\]"]+/);
     if(urlMatch) raw = urlMatch[0];
     
-    // 3. (可选) 此处不自动包装，包装逻辑在保存时统一处理
+    // 3. 自动包装媒体 (Video/Image)
+    // 🟢 之前这里被我注释掉了，现在加回来了！
+    if (/\.(jpg|jpeg|png|gif|webp|bmp|svg|mp4|mov|webm|ogg|mkv)(\?|$)/i.test(raw)) {
+       return `![](${raw})`;
+    }
     return raw;
   });
-  return lines.join('\n');
+  return lines.filter(l=>l).join('\n');
 };
 
 const BlockBuilder = ({ blocks, setBlocks }) => {
@@ -132,8 +140,7 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
           <div key={b.id} className="block-card">
             <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
             {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
-            {/* 🟢 优化：输入框高度增加到 200px */}
-            {b.type === 'text' && <textarea className="glow-input" placeholder="输入内容或粘贴直链（支持多行，保存时自动格式化）..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
+            {b.type === 'text' && <textarea className="glow-input" placeholder="输入内容或粘贴直链（支持多行，自动转换为媒体）..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
             {b.type === 'lock' && (
                <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
                  <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
@@ -180,20 +187,13 @@ export default function Home() {
 
   const handleNavClick = (idx) => { setNavIdx(idx); const modes = ['folder','covered','text','gallery']; setViewMode(modes[idx]); setSelectedFolder(null); };
 
-  // 🟢 智能逻辑 (SAVE)：保存时，逐行检测，将纯链接转为 ![]()
+  // 🟢 智能逻辑 (SAVE)：保存时，调用 cleanAndFormat 进行自动转换
   useEffect(() => {
     if(view !== 'edit') return;
     const newContent = editorBlocks.map(b => {
       let content = b.content || '';
       if (b.type === 'text' || b.type === 'lock') {
-          content = content.split('\n').map(line => {
-              const t = line.trim();
-              // 只要这一行以 http 开头，且不包含 Markdown 括号，就视为纯链接，自动包装
-              if (/^https?:\/\//.test(t) && !t.startsWith('![')) {
-                  return `![](${t})`;
-              }
-              return line;
-          }).join('\n');
+          content = cleanAndFormat(content); 
       }
       if(b.type === 'h1') return `# ${content}`;
       if(b.type === 'lock') return `:::lock ${b.pwd}\n${content}\n:::`;
@@ -202,7 +202,7 @@ export default function Home() {
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 智能逻辑 (LOAD)：加载时，逐行剥离 ![]() 和 []()
+  // 🟢 智能逻辑 (LOAD)：加载时，剥离格式
   const parseContentToBlocks = (md) => {
     if(!md) return [];
     const lines = md.split(/\r?\n/);
@@ -210,12 +210,7 @@ export default function Home() {
     let currentText = [];
     let isLock = false, lockPwd = '', lockBody = [];
     
-    // 剥离函数
-    const stripMd = (str) => { 
-        // 匹配 ![]() 或 []()
-        const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/);
-        return match ? match[1] : str;
-    };
+    const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
 
     const flushText = () => { 
         if(currentText.length > 0) { 
@@ -254,6 +249,7 @@ export default function Home() {
     setExpandedStep(1);
   };
 
+  const convertLinks = () => { if(!rawLinks.trim()) return; const lines = rawLinks.split('\n').filter(l => l.trim()); const final = lines.map(l => { const m = l.match(/https?:\/\/[^\s)\]]+/); return m ? m[0] : ''; }).filter(Boolean); if(final.length > 0) { const res = final.join('\n'); setMdLinks(res); setRawLinks(res); } else { alert("未识别到链接"); } };
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
   const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
@@ -309,7 +305,6 @@ export default function Home() {
 
             <StepAccordion step={3} title="元数据与封面" isOpen={expandedStep === 3} onToggle={()=>setExpandedStep(expandedStep===3?0:3)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'greenyellow', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
-               {/* 🟢 封面输入框：失去焦点时自动清洗 */}
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>摘要</label><input className="glow-input" value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} /></div>
             </StepAccordion>
