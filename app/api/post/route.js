@@ -42,13 +42,18 @@ function mdToBlocks(markdown) {
     if (isLocking) { if (trimmed) lockContent.push(line); continue; }
     if (!trimmed) continue;
 
-    // 🟢 核心修复：精准区分 Image 和 Video
-    const mediaMatch = trimmed.match(/!\[.*\]\((.*)\)/);
+    // 🟢 核心修复：媒体识别与 URL 处理
+    // 匹配 ![]() 或 []() 格式的链接 (兼容之前可能产生的错误格式)
+    const mediaMatch = trimmed.match(/(?:!|)?\[.*?\]\((.*?)\)/);
+    
     if (mediaMatch) { 
-      const url = mediaMatch[1].trim();
-      const safeUrl = encodeURI(url); // 简单编码防止特殊字符报错
+      let url = mediaMatch[1].trim();
       
-      // 检测是否为视频
+      // 🟡 防止二次编码：如果 URL 已经被编码过(包含%)，就不要再 encodeURI 了
+      // 否则 %E7 会变成 %25E7，导致链接失效
+      const safeUrl = url.includes('%') ? url : encodeURI(url);
+      
+      // 检测视频后缀
       const isVideo = url.match(/\.(mp4|mov|webm|ogg|mkv)(\?|$)/i);
       
       if (isVideo) {
@@ -75,7 +80,6 @@ export async function GET(request) {
     const page = await notion.pages.retrieve({ page_id: id });
     const mdblocks = await n2m.pageToMarkdown(id);
     
-    // 获取原始 blocks 用于前端预览
     let rawBlocks = [];
     try { const blocksRes = await notion.blocks.children.list({ block_id: id }); rawBlocks = blocksRes.results; } catch (e) { console.error(e); }
 
@@ -90,11 +94,8 @@ export async function GET(request) {
     });
 
     const mdStringObj = n2m.toMarkdownString(mdblocks);
-    
-    // 🟢 修复读取：将 Notion 可能生成的 [Video](url) 统一转回 ![](url) 以便前端统一处理
-    let cleanContent = mdStringObj.parent
-        .replace(/\[video\]\((.*)\)/gi, '![]($1)') // 强制转换视频标记
-        .replace(/\n\s*\n/g, '\n').trim();
+    // 强制清理
+    let cleanContent = mdStringObj.parent.replace(/\n\s*\n/g, '\n').trim();
 
     const p = page.properties;
     return NextResponse.json({
@@ -141,7 +142,6 @@ export async function POST(request) {
       const children = await notion.blocks.children.list({ block_id: id });
       await Promise.all(children.results.map(b => notion.blocks.delete({ block_id: b.id })));
       await sleep(1000); 
-      // 节流写入
       const chunkSize = 10; 
       for (let i = 0; i < newBlocks.length; i += chunkSize) {
         await notion.blocks.children.append({ block_id: id, children: newBlocks.slice(i, i + chunkSize) });
