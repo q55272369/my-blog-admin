@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
-// 图标库
+// 图标库 (保持不变)
 const Icons = {
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
@@ -11,7 +11,7 @@ const Icons = {
   FolderIcon: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff" style={{opacity:0.8}}><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"></path></svg>,
   Edit: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>,
   Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
-  Loader: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="spinning"><circle cx="12" cy="12" r="10" strokeOpacity="0.2"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke="#007aff"></path></svg>
+  Tutorial: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
 };
 
 export default function Home() {
@@ -22,32 +22,83 @@ export default function Home() {
     const style = document.head.appendChild(document.createElement('style'));
     style.innerHTML = `
       body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
+      
+      /* 基础卡片样式 */
       .card-item { position: relative; background: #424242; border-radius: 12px; margin-bottom: 12px; border: 1px solid transparent; cursor: pointer; transition: 0.3s; overflow: hidden; display: flex !important; flex-direction: row !important; align-items: stretch; }
       .card-item:hover { border-color: #007aff; transform: translateY(-2px); background: #4d4d4d; }
       .drawer { position: absolute; right: -120px; top: 0; bottom: 0; width: 120px; display: flex; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
       .card-item:hover .drawer { right: 0; }
       .dr-btn { flex: 1; display: flex; align-items: center; justify-content: center; color: #fff; transition: 0.2s; }
+      
+      /* 模态框 */
       .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
       .modal-box { background: #202024; width: 90%; maxWidth: 900px; height: 90vh; border-radius: 24px; border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
       .modal-body { flex: 1; overflow-y: auto; padding: 40px; scroll-behavior: smooth; }
-      .btn-ia:active { transform: scale(0.95); }
-      .btn-ia:hover { filter: brightness(1.2); }
+      
+      /* 标签与输入框 */
       .tag-chip { background: #333; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #bbb; margin: 0 5px 5px 0; cursor: pointer; position: relative; }
       .tag-del { position: absolute; top: -5px; right: -5px; background: #ff4d4f; color: white; border-radius: 50%; width: 14px; height: 14px; display: none; align-items: center; justify-content: center; font-size: 10px; }
       .tag-chip:hover .tag-del { display: flex; }
-      .required-star { color: #ff4d4f !important; margin-left: 4px; font-weight: bold; }
-      .spinning { animation: rotate 1s linear infinite; }
-      @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      .load-toast { position: fixed; top: 20px; right: 20px; background: #202024; border: 1px solid #333; padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; gap: 10px; z-index: 2000; box-shadow: 0 5px 15px rgba(0,0,0,0.3); font-weight: bold; font-size: 13px; }
       input, select, textarea { width: 100%; padding: 14px; background: #18181c; border: 1px solid #333; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 15px; outline: none; transition: 0.2s; }
       input:focus, select:focus, textarea:focus { border-color: #007aff; background: #1f1f23; }
+      .btn-ia:active { transform: scale(0.95); }
+      .btn-ia:hover { filter: brightness(1.2); }
       ::-webkit-scrollbar { width: 8px; }
       ::-webkit-scrollbar-track { background: #202024; }
       ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+      /* --- 🟢 新增：全屏加载动画 (PRO版) --- */
+      .loader-overlay { position: fixed; inset: 0; background: rgba(20, 20, 23, 0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); flex-direction: column; }
+      .loader-text { margin-top: 20px; font-family: monospace; color: #666; font-size: 12px; letter-spacing: 2px; }
+      .loader { display: flex; margin: 0.25em 0; }
+      .dash { animation: dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite; }
+      @keyframes dashArray { 0% { stroke-dasharray: 0 1 359 0; } 50% { stroke-dasharray: 0 359 1 0; } 100% { stroke-dasharray: 359 1 0 0; } }
+      @keyframes dashOffset { 0% { stroke-dashoffset: 365; } 100% { stroke-dashoffset: 5; } }
+
+      /* --- 🟢 新增：极客风动画按钮 --- */
+      .animated-button { position: relative; display: flex; align-items: center; gap: 4px; padding: 12px 36px; border: 2px solid; border-color: transparent; font-size: 14px; background-color: inherit; border-radius: 100px; font-weight: 600; color: greenyellow; box-shadow: 0 0 0 2px greenyellow; cursor: pointer; overflow: hidden; transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1); }
+      .animated-button svg { position: absolute; width: 20px; fill: greenyellow; z-index: 9; transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1); }
+      .animated-button .arr-1 { right: 16px; }
+      .animated-button .arr-2 { left: -25%; }
+      .animated-button .circle { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; background-color: greenyellow; border-radius: 50%; opacity: 0; transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1); }
+      .animated-button .text { position: relative; z-index: 1; transform: translateX(-12px); transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1); }
+      .animated-button:hover { box-shadow: 0 0 0 12px transparent; color: #212121; border-radius: 12px; }
+      .animated-button:hover .arr-1 { right: -25%; }
+      .animated-button:hover .arr-2 { left: 16px; }
+      .animated-button:hover .text { transform: translateX(12px); }
+      .animated-button:hover svg { fill: #212121; }
+      .animated-button:active { scale: 0.95; box-shadow: 0 0 0 4px greenyellow; }
+      .animated-button:hover .circle { width: 220px; height: 220px; opacity: 1; }
     `;
   }, []);
-// 🟢 智能媒体渲染组件：图片增加与视频一致的“黑色相框”容器，确保视觉尺寸完全对齐
+// 🟢 组件：全屏加载蒙版 (PRO 动画)
+  const FullScreenLoader = () => (
+    <div className="loader-overlay">
+      <div className="loader">
+        <svg viewBox="0 0 200 60" width="200" height="60">
+          {/* P */}
+          <path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M20,50 L20,10 L50,10 C65,10 65,30 50,30 L20,30" />
+          {/* R */}
+          <path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M80,50 L80,10 L110,10 C125,10 125,30 110,30 L80,30 M100,30 L120,50" />
+          {/* O */}
+          <path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M140,30 A20,20 0 1,0 180,30 A20,20 0 1,0 140,30" />
+        </svg>
+      </div>
+      <div className="loader-text">SYSTEM PROCESSING</div>
+    </div>
+  );
+
+  // 🟢 组件：极客动画按钮
+  const AnimatedBtn = ({ text, onClick, style }) => (
+    <button className="animated-button" onClick={onClick} style={style}>
+      <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg>
+      <span className="text">{text}</span>
+      <span className="circle"></span>
+      <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg>
+    </button>
+  );
+
   const NotionView = ({ blocks }) => (
     <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8'}}>
       {blocks?.map((b, i) => {
@@ -59,56 +110,25 @@ export default function Home() {
         if(type==='paragraph') return <p key={i} style={{margin:'10px 0', minHeight:'1em'}}>{text}</p>;
         if(type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #444', margin:'24px 0'}} />;
         
-        // 🖼️ 图片块处理逻辑
         if(type==='image') {
           const url = data?.file?.url || data?.external?.url;
           if (!url) return null;
-
-          // 🟢 视频伪装检测
           const isVideoFile = url.match(/\.(mp4|mov|webm|ogg)(\?|$)/i);
           if (isVideoFile) {
-             return (
-              <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
-                <video src={url} controls preload="metadata" style={{width:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} />
-              </div>
-            );
+             return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}><video src={url} controls preload="metadata" style={{width:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} /></div>;
           }
-
-          // 🟢 图片渲染修正：增加“黑色相框”容器，强制尺寸与视频播放器一致
-          return (
-            <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
-              <div style={{width: '100%', height: '500px', background: '#000', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}>
-                <img src={url} style={{maxWidth: '100%', maxHeight: '100%', objectFit: 'contain'}} alt="" />
-              </div>
-            </div>
-          );
+          return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}><div style={{width: '100%', height: '500px', background: '#000', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}><img src={url} style={{maxWidth: '100%', maxHeight: '100%', objectFit: 'contain'}} alt="" /></div></div>;
         }
 
-        // 🎬 原生视频与嵌入块处理
         if(type==='video' || type==='embed') {
           let url = data?.file?.url || data?.external?.url || data?.url;
           if(!url) return null;
-
           const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
           const isBilibili = url.includes('bilibili.com');
           const isEmbed = type === 'embed' || isYoutube || isBilibili;
-
-          if (isYoutube) {
-             if(url.includes('watch?v=')) url = url.replace('watch?v=', 'embed/');
-             if(url.includes('youtu.be/')) url = url.replace('youtu.be/', 'www.youtube.com/embed/');
-          }
-
-          return (
-            <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>
-              {isEmbed ? (
-                <iframe src={url} style={{width:'100%', maxWidth:'800px', height:'450px', border:'none', borderRadius:'8px', background:'#000'}} allowFullScreen />
-              ) : (
-                <video src={url} controls preload="metadata" style={{width:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} />
-              )}
-            </div>
-          );
+          if (isYoutube) { if(url.includes('watch?v=')) url = url.replace('watch?v=', 'embed/'); if(url.includes('youtu.be/')) url = url.replace('youtu.be/', 'www.youtube.com/embed/'); }
+          return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>{isEmbed ? <iframe src={url} style={{width:'100%', maxWidth:'800px', height:'450px', border:'none', borderRadius:'8px', background:'#000'}} allowFullScreen /> : <video src={url} controls preload="metadata" style={{width:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000'}} />}</div>;
         }
-
         if(type==='callout') return <div key={i} style={{background:'#2d2d30', padding:'20px', borderRadius:'12px', border:'1px solid #3e3e42', display:'flex', gap:'15px', margin:'20px 0'}}><div style={{fontSize:'1.4em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1}}><div style={{fontWeight:'bold', color:'#007aff', marginBottom:'4px'}}>{text}</div><div style={{fontSize:'12px', opacity:0.5}}>[ 加密内容已受保护 ]</div></div></div>;
         return null;
       })}
@@ -126,27 +146,7 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
 
   const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
   const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setCurrentId(p.id); setView('edit'); } }).finally(()=>setLoading(false)); };
-  
-  // 🔴 修复 BUG 的关键位置：外链转换逻辑
-  const convertLinks = () => {
-    if(!rawLinks.trim()) return;
-    const lines = rawLinks.split('\n').filter(l => l.trim());
-    const final = lines.map(l => {
-      // 🟢 新正则：匹配 http 开头，直到遇到空白符 OR 闭括号 ')' OR 闭中括号 ']'
-      // 这样即使你复制了已经带括号的 Markdown 链接，正则也会在 ')' 前停下，不会把 ')' 吸进去
-      const m = l.match(/https?:\/\/[^\s)\]]+/);
-      return m ? `![](${m[0]})` : '';
-    }).filter(Boolean);
-    
-    if(final.length > 0) {
-      const result = final.join('\n');
-      setMdLinks(result); 
-      setRawLinks(result);
-    } else {
-      alert("未识别到有效链接");
-    }
-  };
-
+  const convertLinks = () => { if(!rawLinks.trim()) return; const lines = rawLinks.split('\n').filter(l => l.trim()); const final = lines.map(l => { const m = l.match(/https?:\/\/[^\s)\]]+/); return m ? `![](${m[0]})` : ''; }).filter(Boolean); if(final.length > 0) { const res = final.join('\n'); setMdLinks(res); setRawLinks(res); } else { alert("未识别到链接"); } };
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
   const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
@@ -154,15 +154,27 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
 
   return (
     <div style={{ minHeight: '100vh', background: '#303030', padding: '40px 20px' }}>
-      {loading && <div className="load-toast"><Icons.Loader /> 处理中...</div>}
+      {/* 🟢 全屏加载动画 */}
+      {loading && <FullScreenLoader />}
+      
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
           <div style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '1px' }}>PRO<span style={{ color: '#007aff' }}>BLOG</span></div>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+            {/* 🟢 教程按钮 */}
+            <button onClick={() => window.open('https://pan.cloudreve.org/xxx', '_blank')} style={{background:'#a855f7', border:'none', padding:'8px 15px', borderRadius:'8px', color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', gap:'5px', fontWeight:'bold', fontSize:'13px'}} className="btn-ia">
+               <Icons.Tutorial /> 使用教程
+            </button>
             {view === 'list' ? (
-              <><button onClick={() => setIsSearchOpen(!isSearchOpen)} style={s.iconBtn} className="btn-ia"><Icons.Search /></button>
-              <button onClick={() => { setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: activeTab, date: new Date().toISOString().split('T')[0] }); setCurrentId(null); setView('edit'); }} style={s.btnBlue} className="btn-ia">发布新内容</button></>
-            ) : <button onClick={() => setView('list')} style={s.btnGray} className="btn-ia">返回</button>}
+              <>
+                <button onClick={() => setIsSearchOpen(!isSearchOpen)} style={s.iconBtn} className="btn-ia"><Icons.Search /></button>
+                {/* 🟢 动画按钮: 发布新内容 */}
+                <AnimatedBtn text="发布新内容" onClick={() => { setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: activeTab, date: new Date().toISOString().split('T')[0] }); setCurrentId(null); setView('edit'); }} />
+              </>
+            ) : (
+                // 🟢 动画按钮: 返回
+                <AnimatedBtn text="返回列表" onClick={() => setView('list')} />
+            )}
           </div>
         </header>
 
