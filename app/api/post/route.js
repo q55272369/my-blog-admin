@@ -9,66 +9,62 @@ const n2m = new NotionToMarkdown({ notionClient: notion });
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function mdToBlocks(markdown) {
-  const lines = markdown.split(/\r?\n/);
+  // 1. 先按双换行符分割成大块 (Block)
+  const rawBlocks = markdown.split(/\n{2,}/); 
   const blocks = [];
   let isLocking = false; 
   let lockPassword = ''; 
   let lockContent = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
-
-    // --- 加密块逻辑 ---
-    if (trimmed.startsWith(':::lock')) { 
-      isLocking = true; 
-      lockPassword = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123'; 
-      lockContent = []; 
-      continue; 
-    }
-
-    if (isLocking && trimmed === ':::') {
-      blocks.push({ 
-        object: 'block', type: 'callout', 
-        callout: { 
-          rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }], 
-          icon: { type: "emoji", emoji: "🔒" }, color: "gray_background", 
-          children: [ { object: 'block', type: 'divider', divider: {} }, ...mdToBlocks(lockContent.join('\n')) ] 
-        } 
-      });
-      isLocking = false; continue;
-    }
-
-    if (isLocking) { if (trimmed) lockContent.push(line); continue; }
-    if (!trimmed) continue;
-
-    // 🟢 核心修复：媒体识别与 URL 处理
-    // 匹配 ![]() 或 []() 格式的链接 (兼容之前可能产生的错误格式)
-    const mediaMatch = trimmed.match(/(?:!|)?\[.*?\]\((.*?)\)/);
+  for (let rawBlock of rawBlocks) {
+    // 2. 再处理每一块内部的行
+    const lines = rawBlock.split(/\r?\n/);
     
-    if (mediaMatch) { 
-      let url = mediaMatch[1].trim();
-      
-      // 🟡 防止二次编码：如果 URL 已经被编码过(包含%)，就不要再 encodeURI 了
-      // 否则 %E7 会变成 %25E7，导致链接失效
-      const safeUrl = url.includes('%') ? url : encodeURI(url);
-      
-      // 检测视频后缀
-      const isVideo = url.match(/\.(mp4|mov|webm|ogg|mkv)(\?|$)/i);
-      
-      if (isVideo) {
-        blocks.push({ object: 'block', type: 'video', video: { type: 'external', external: { url: safeUrl } } });
-      } else {
-        blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: safeUrl } } });
-      }
-      continue; 
-    }
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
 
-    // 标题与文本
-    if (trimmed.startsWith('# ')) { blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } }); } 
-    else if (trimmed.startsWith('## ')) { blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ text: { content: trimmed.replace('## ', '') } }] } }); } 
-    else if (trimmed.startsWith('**') && trimmed.endsWith('**')) { blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: trimmed.replace(/\*\*/g, '') }, annotations: { bold: true } }] } }); } 
-    else { blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: line } }] } }); }
+      // --- 加密块逻辑 (保持不变) ---
+      if (trimmed.startsWith(':::lock')) { 
+        isLocking = true; 
+        lockPassword = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123'; 
+        lockContent = []; 
+        continue; 
+      }
+      if (isLocking && trimmed === ':::') {
+        blocks.push({ 
+          object: 'block', type: 'callout', 
+          callout: { 
+            rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }], 
+            icon: { type: "emoji", emoji: "🔒" }, color: "gray_background", 
+            children: [ { object: 'block', type: 'divider', divider: {} }, ...mdToBlocks(lockContent.join('\n\n')) ] 
+          } 
+        });
+        isLocking = false; continue;
+      }
+      if (isLocking) { if (trimmed) lockContent.push(line); continue; }
+      
+      if (!trimmed) continue;
+
+      // --- 媒体识别 ---
+      const mediaMatch = trimmed.match(/(?:!|)?\[.*?\]\((.*?)\)/);
+      if (mediaMatch) { 
+        let url = mediaMatch[1].trim();
+        const safeUrl = url.includes('%') ? url : encodeURI(url);
+        const isVideo = url.match(/\.(mp4|mov|webm|ogg|mkv)(\?|$)/i);
+        if (isVideo) {
+          blocks.push({ object: 'block', type: 'video', video: { type: 'external', external: { url: safeUrl } } });
+        } else {
+          blocks.push({ object: 'block', type: 'image', image: { type: 'external', external: { url: safeUrl } } });
+        }
+        continue; 
+      }
+
+      // --- 文本处理 ---
+      if (trimmed.startsWith('# ')) { blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } }); } 
+      else if (trimmed.startsWith('## ')) { blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ text: { content: trimmed.replace('## ', '') } }] } }); } 
+      else { blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: line } }] } }); }
+    }
   }
   return blocks;
 }
@@ -88,14 +84,16 @@ export async function GET(request) {
         const pwd = b.parent.match(/LOCK:([a-zA-Z0-9]+)/)?.[1] || '123';
         const parts = b.parent.split('---');
         let body = parts.length > 1 ? parts.slice(1).join('---') : parts[0].replace(/LOCK:.*\n?/, '');
-        body = body.replace(/^>[ \t]*/gm, '').replace(/\n\s*\n/g, '\n').trim();
+        body = body.replace(/^>[ \t]*/gm, '').trim(); // 只去引用符，保留内部换行结构
         b.parent = `:::lock ${pwd}\n${body}\n:::`;
       }
     });
 
     const mdStringObj = n2m.toMarkdownString(mdblocks);
-    // 强制清理
-    let cleanContent = mdStringObj.parent.replace(/\n\s*\n/g, '\n').trim();
+    
+    // 🟢 关键修改：不再强行压缩成单换行，保留段落间的双换行结构
+    // 这里的 trim() 只是去掉首尾空白，保留中间结构
+    let cleanContent = mdStringObj.parent.trim();
 
     const p = page.properties;
     return NextResponse.json({
