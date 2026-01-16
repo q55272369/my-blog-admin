@@ -56,16 +56,16 @@ const GlobalStyle = () => (
     .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
     .nav-item.active { color: #000; font-weight: bold; }
     
-    /* 🟢 积木拖拽修复 */
+    /* 🟢 修复拖拽和文字选择的冲突 */
     .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; transition: border 0.2s, transform 0.2s; cursor: default; }
     .block-card:hover { border-color: greenyellow; }
     .block-card.dragging { opacity: 0.3; background: #1a1a1d; border: 1px dashed greenyellow; }
     
-    /* 手柄样式 */
+    /* 手柄样式：提高 z-index 确保可点 */
     .block-drag-handle { 
         position: absolute; left: 0; top: 0; bottom: 0; width: 45px; 
         display: flex; align-items: center; justify-content: center;
-        cursor: grab; color: #666; transition: 0.2s; z-index: 10;
+        cursor: grab; color: #666; transition: 0.2s; z-index: 10; 
         border-right: 1px solid transparent;
     }
     .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); border-right: 1px solid #333; }
@@ -139,7 +139,9 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
+  // 🟢 拖拽修复：强制检查事件源
   const handleDragStart = (e, index) => {
+    // 只有点在 .block-drag-handle 上才允许拖动
     if (!e.target.closest('.block-drag-handle')) {
       e.preventDefault();
       return;
@@ -225,7 +227,6 @@ const NotionView = ({ blocks }) => (
     })}
   </div>
 );
-
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
@@ -243,7 +244,7 @@ export default function Home() {
 
   const handleNavClick = (idx) => { setNavIdx(idx); const modes = ['folder','covered','text','gallery']; setViewMode(modes[idx]); setSelectedFolder(null); };
 
-  // 🟢 保存逻辑
+  // 保存逻辑
   useEffect(() => {
     if(view !== 'edit') return;
     const newContent = editorBlocks.map(b => {
@@ -256,52 +257,60 @@ export default function Home() {
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 加载逻辑 (智能合并)
+  // 🟢 智能加载逻辑：缝合破碎的加密块
   const parseContentToBlocks = (md) => {
     if(!md) return [];
     const rawChunks = md.split(/\n{2,}/);
     const res = [];
+    
+    // 缝合逻辑
+    let mergedBlocks = [];
+    let buffer = "";
+    let mergingLock = false;
+
+    for (let chunk of rawChunks) {
+        const t = chunk.trim();
+        if (!t) continue;
+
+        if (!mergingLock && t.startsWith(':::lock')) {
+            if (t.endsWith(':::')) {
+                mergedBlocks.push(t);
+            } else {
+                mergingLock = true;
+                buffer = t;
+            }
+        } else if (mergingLock) {
+            buffer += "\n\n" + t;
+            if (t.endsWith(':::')) {
+                mergingLock = false;
+                mergedBlocks.push(buffer);
+                buffer = "";
+            }
+        } else {
+            mergedBlocks.push(t);
+        }
+    }
+    if (mergingLock && buffer) mergedBlocks.push(buffer);
+
     const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
 
-    // 🟢 智能合并缓冲池
-    let textBuffer = [];
-
-    const flushText = () => {
-      if (textBuffer.length > 0) {
-        // 将缓冲池的内容合并为一个文本块
-        res.push({ id: Date.now() + Math.random(), type: 'text', content: textBuffer.join('\n') });
-        textBuffer = [];
-      }
-    };
-
-    for(let rawBlock of rawChunks) {
-      let t = rawBlock.trim();
-      if(!t) continue;
-
-      // 1. 加密块 (独占，必须 Flush)
-      if(t.startsWith(':::lock')) { 
-        flushText();
-        const pwd = t.match(/:::lock\s+(.*?)\n/)?.[1] || '123';
-        const content = t.replace(/:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
+    for(let block of mergedBlocks) {
+      if(block.startsWith(':::lock')) { 
+        const pwd = block.match(/:::lock\s+(.*?)\n/)?.[1] || '123';
+        let content = block.replace(/^:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
         const strippedContent = content.split('\n').map(stripMd).join('\n');
         res.push({ id: Date.now() + Math.random(), type: 'lock', pwd, content: strippedContent });
         continue;
       }
       
-      // 2. 标题 (独占，必须 Flush)
-      if(t.startsWith('# ')) { 
-        flushText();
-        res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); 
+      if(block.startsWith('# ')) { 
+        res.push({ id: Date.now() + Math.random(), type: 'h1', content: block.replace('# ','') }); 
         continue; 
       }
       
-      // 3. 文本/媒体：尝试合并
-      // 剥离格式
-      const strippedContent = t.split('\n').map(stripMd).join('\n');
-      textBuffer.push(strippedContent);
+      const strippedContent = block.split('\n').map(stripMd).join('\n');
+      res.push({ id: Date.now() + Math.random(), type: 'text', content: strippedContent });
     }
-    // 最后 Flush
-    flushText();
     return res;
   };
 
