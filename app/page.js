@@ -15,64 +15,29 @@ const Icons = {
   ChevronDown: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
 };
 
-// --- 2. 全局样式注入 (GlobalStyle) ---
+// --- 2. 样式表 ---
 const GlobalStyle = () => (
   <style dangerouslySetInnerHTML={{__html: `
     body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
-    
-    /* 卡片与交互 */
     .card-item { position: relative; background: #424242; border-radius: 12px; margin-bottom: 12px; border: 1px solid transparent; cursor: pointer; transition: 0.3s; overflow: hidden; display: flex !important; flex-direction: row !important; align-items: stretch; }
     .card-item:hover { border-color: greenyellow; transform: translateY(-2px); background: #4d4d4d; box-shadow: 0 0 10px rgba(173, 255, 47, 0.1); }
     .drawer { position: absolute; right: -120px; top: 0; bottom: 0; width: 120px; display: flex; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; }
     .card-item:hover .drawer { right: 0; }
     .dr-btn { flex: 1; display: flex; align-items: center; justify-content: center; color: #fff; transition: 0.2s; }
-    
-    /* 模态框 */
     .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
     .modal-box { background: #202024; width: 90%; maxWidth: 900px; height: 90vh; border-radius: 24px; border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
     .modal-body { flex: 1; overflow-y: auto; padding: 40px; scroll-behavior: smooth; }
-    
-    /* 输入控件 */
     input, select, textarea { width: 100%; padding: 14px; background: #18181c; border: 1px solid #333; border-radius: 10px; color: #fff; box-sizing: border-box; font-size: 15px; outline: none; transition: 0.3s; }
     .glow-input:focus, .glow-input:hover { border-color: greenyellow; box-shadow: 0 0 12px rgba(173, 255, 47, 0.3); background: #1f1f23; }
     .tag-chip { background: #333; padding: 4px 10px; border-radius: 4px; font-size: 11px; color: #bbb; margin: 0 5px 5px 0; cursor: pointer; position: relative; }
     .tag-del { position: absolute; top: -5px; right: -5px; background: #ff4d4f; color: white; border-radius: 50%; width: 14px; height: 14px; display: none; align-items: center; justify-content: center; font-size: 10px; }
     .tag-chip:hover .tag-del { display: flex; }
-    
-    /* 动画按钮 (Gumroad Style) */
-    .neo-btn { --bg: #000; --hover-bg: #ff90e8; --hover-text: #000; color: #fff; cursor: pointer; border: 1px solid var(--bg); border-radius: 4px; padding: 0.8em 2em; background: var(--bg); transition: 0.2s; display: flex; justify-content: center; align-items: center; font-weight: bold; }
-    .neo-btn:hover { color: var(--hover-text); transform: translate(-0.25rem, -0.25rem); background: var(--hover-bg); box-shadow: 0.25rem 0.25rem var(--bg); border-color: var(--hover-bg); }
-    .neo-btn:active { transform: translate(0); box-shadow: none; }
-    
-    /* 滑块导航 */
-    .nav-container { position: relative; background: #202024; border-radius: 50px; padding: 5px; display: flex; align-items: center; gap: 5px; border: 1px solid #333; width: fit-content; }
-    .nav-glider { position: absolute; top: 5px; bottom: 5px; background: greenyellow; border-radius: 40px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1; }
-    .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
-    .nav-item.active { color: #000; font-weight: bold; }
-    
-    /* 块编辑器 */
-    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px; margin-bottom: 10px; position: relative; transition: 0.2s; }
-    .block-card:hover { border-color: greenyellow; transform: translateX(5px); }
-    .block-del { position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: #ff4d4f; border-radius: 0 10px 10px 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; cursor: pointer; color: white; }
-    .block-card:hover .block-del { opacity: 1; right: -40px; }
-    .block-card:hover { margin-right: 40px; }
-    
-    /* 手风琴 */
-    .acc-btn { width: 100%; background: #424242; padding: 15px 20px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid #555; color: #fff; margin-bottom: 10px; transition: 0.2s; }
-    .acc-btn:hover { border-color: greenyellow; color: greenyellow; }
-    .acc-content { overflow: hidden; transition: max-height 0.3s ease; max-height: 0; padding: 0 10px; }
-    .acc-content.open { max-height: 500px; padding-bottom: 20px; }
-
-    /* 搜索框 */
-    .group { display: flex; line-height: 28px; align-items: center; position: relative; max-width: 240px; }
-    .input { font-family: "Montserrat", sans-serif; width: 100%; height: 45px; padding-left: 2.5rem; box-shadow: 0 0 0 1.5px #2b2c37, 0 0 25px -17px #000; border: 0; border-radius: 12px; background-color: #16171d; outline: none; color: #bdbecb; transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1); cursor: text; z-index: 0; }
-    .input::placeholder { color: #bdbecb; }
-    .input:hover { box-shadow: 0 0 0 2.5px #2f303d, 0px 0px 25px -15px #000; }
-    .input:active { transform: scale(0.95); }
-    .input:focus { box-shadow: 0 0 0 2.5px #2f303d; }
-    .search-icon { position: absolute; left: 1rem; fill: #bdbecb; width: 1rem; height: 1rem; pointer-events: none; z-index: 1; }
-
-    /* 极客按钮动画 (AnimatedBtn) */
+    .loader-overlay { position: fixed; inset: 0; background: rgba(20, 20, 23, 0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); flex-direction: column; }
+    .loader-text { margin-top: 20px; font-family: monospace; color: #666; font-size: 12px; letter-spacing: 2px; }
+    .loader { display: flex; margin: 0.25em 0; }
+    .dash { animation: dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite; }
+    @keyframes dashArray { 0% { stroke-dasharray: 0 1 359 0; } 50% { stroke-dasharray: 0 359 1 0; } 100% { stroke-dasharray: 359 1 0 0; } }
+    @keyframes dashOffset { 0% { stroke-dashoffset: 365; } 100% { stroke-dashoffset: 5; } }
     .animated-button { position: relative; display: flex; align-items: center; gap: 4px; padding: 12px 36px; border: 2px solid; border-color: transparent; font-size: 14px; background-color: inherit; border-radius: 100px; font-weight: 600; color: greenyellow; box-shadow: 0 0 0 2px greenyellow; cursor: pointer; overflow: hidden; transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1); }
     .animated-button svg { position: absolute; width: 20px; fill: greenyellow; z-index: 9; transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1); }
     .animated-button .arr-1 { right: 16px; }
@@ -86,49 +51,77 @@ const GlobalStyle = () => (
     .animated-button:hover svg { fill: #212121; }
     .animated-button:active { scale: 0.95; box-shadow: 0 0 0 4px greenyellow; }
     .animated-button:hover .circle { width: 220px; height: 220px; opacity: 1; }
-
-    /* 加载蒙版 */
-    .loader-overlay { position: fixed; inset: 0; background: rgba(20, 20, 23, 0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); flex-direction: column; }
-    .loader-text { margin-top: 20px; font-family: monospace; color: #666; font-size: 12px; letter-spacing: 2px; }
-    .loader { display: flex; margin: 0.25em 0; }
-    .dash { animation: dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite; }
-    @keyframes dashArray { 0% { stroke-dasharray: 0 1 359 0; } 50% { stroke-dasharray: 0 359 1 0; } 100% { stroke-dasharray: 359 1 0 0; } }
-    @keyframes dashOffset { 0% { stroke-dashoffset: 365; } 100% { stroke-dashoffset: 5; } }
-    
+    .nav-container { position: relative; background: #202024; border-radius: 50px; padding: 5px; display: flex; align-items: center; gap: 5px; border: 1px solid #333; width: fit-content; }
+    .nav-glider { position: absolute; top: 5px; bottom: 5px; background: greenyellow; border-radius: 40px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1; }
+    .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
+    .nav-item.active { color: #000; font-weight: bold; }
+    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px; margin-bottom: 10px; position: relative; transition: 0.2s; }
+    .block-card:hover { border-color: greenyellow; transform: translateX(5px); }
+    .block-del { position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: #ff4d4f; border-radius: 0 10px 10px 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; cursor: pointer; color: white; }
+    .block-card:hover .block-del { opacity: 1; right: -40px; }
+    .block-card:hover { margin-right: 40px; }
+    .acc-btn { width: 100%; background: #424242; padding: 15px 20px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid #555; color: #fff; margin-bottom: 10px; transition: 0.2s; }
+    .acc-btn:hover { border-color: greenyellow; color: greenyellow; }
+    .acc-content { overflow: hidden; transition: max-height 0.3s ease; max-height: 0; padding: 0 10px; }
+    .acc-content.open { max-height: 500px; padding-bottom: 20px; }
+    .neo-btn { --bg: #000; --hover-bg: #ff90e8; --hover-text: #000; color: #fff; cursor: pointer; border: 1px solid var(--bg); border-radius: 4px; padding: 0.8em 2em; background: var(--bg); transition: 0.2s; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+    .neo-btn:hover { color: var(--hover-text); transform: translate(-0.25rem, -0.25rem); background: var(--hover-bg); box-shadow: 0.25rem 0.25rem var(--bg); border-color: var(--hover-bg); }
+    .neo-btn:active { transform: translate(0); box-shadow: none; }
+    .group { display: flex; line-height: 28px; align-items: center; position: relative; max-width: 240px; }
+    .input { font-family: "Montserrat", sans-serif; width: 100%; height: 45px; padding-left: 2.5rem; box-shadow: 0 0 0 1.5px #2b2c37, 0 0 25px -17px #000; border: 0; border-radius: 12px; background-color: #16171d; outline: none; color: #bdbecb; transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1); cursor: text; z-index: 0; }
+    .input::placeholder { color: #bdbecb; }
+    .input:hover { box-shadow: 0 0 0 2.5px #2f303d, 0px 0px 25px -15px #000; }
+    .input:active { transform: scale(0.95); }
+    .input:focus { box-shadow: 0 0 0 2.5px #2f303d; }
+    .search-icon { position: absolute; left: 1rem; fill: #bdbecb; width: 1rem; height: 1rem; pointer-events: none; z-index: 1; }
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: #202024; }
     ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #555; }
   `}} />
 );
-// 全屏加载
+
+// --- 3. 工具函数与辅助组件 ---
+
+// 🟢 核心工具：清洗 + 格式化 (支持多行)
+const cleanAndFormat = (input) => {
+  if (!input) return "";
+  const lines = input.split('\n').map(line => {
+    let raw = line.trim();
+    // 1. 剥离 Markdown 包装
+    const mdMatch = raw.match(/\((https?:\/\/[^\)]+)\)/);
+    if(mdMatch) raw = mdMatch[1];
+    
+    // 2. 提取纯净链接
+    const urlMatch = raw.match(/https?:\/\/[^\s)\]"]+/);
+    if(urlMatch) raw = urlMatch[0];
+    
+    // 3. 自动包装媒体 (Video/Image)
+    if (/https?:\/\/.*\.(jpg|jpeg|png|gif|webp|mp4|mov|webm|ogg)/i.test(raw)) {
+       return `![](${raw})`;
+    }
+    return raw;
+  });
+  return lines.join('\n');
+};
+
 const FullScreenLoader = () => (<div className="loader-overlay"><div className="loader"><svg viewBox="0 0 200 60" width="200" height="60"><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M20,50 L20,10 L50,10 C65,10 65,30 50,30 L20,30" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M80,50 L80,10 L110,10 C125,10 125,30 110,30 L80,30 M100,30 L120,50" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M140,30 A20,20 0 1,0 180,30 A20,20 0 1,0 140,30" /></svg></div><div className="loader-text">SYSTEM PROCESSING</div></div>);
 
-// 极客按钮 (Return/Create)
 const AnimatedBtn = ({ text, onClick, style }) => (<button className="animated-button" onClick={onClick} style={style}><svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg><span className="text">{text}</span><span className="circle"></span><svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg></button>);
 
-// 滑块导航
 const SlidingNav = ({ activeIdx, onSelect }) => {
   const icons = [Icons.FolderMode, Icons.CoverMode, Icons.TextMode, Icons.GridMode];
   return (<div className="nav-container"><div className="nav-glider" style={{ left: `${activeIdx * 45 + 5}px`, width: '40px' }} />{icons.map((Icon, i) => (<div key={i} className={`nav-item ${activeIdx === i ? 'active' : ''}`} onClick={() => onSelect(i)}><Icon /></div>))}</div>);
 };
 
-// 极客搜索框
-const SearchInput = ({ value, onChange }) => (
-  <div className="group">
-    <svg className="search-icon" aria-hidden="true" viewBox="0 0 24 24"><g><path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z"></path></g></svg>
-    <input placeholder="Search" type="search" className="input" value={value} onChange={onChange} />
-  </div>
-);
+const SearchInput = ({ value, onChange }) => (<div className="group"><svg className="search-icon" aria-hidden="true" viewBox="0 0 24 24"><g><path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z"></path></g></svg><input placeholder="Search" type="search" className="input" value={value} onChange={onChange} /></div>);
 
-// 手风琴容器
 const StepAccordion = ({ step, title, isOpen, onToggle, children }) => (<div><div className="acc-btn" onClick={onToggle}><div style={{fontWeight:'bold'}}><span style={{color:'greenyellow', marginRight:'10px'}}>Step {step}</span>{title}</div><div style={{transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'0.3s'}}><Icons.ChevronDown /></div></div><div className={`acc-content ${isOpen ? 'open' : ''}`}>{children}</div></div>);
 
-// 🟢 核心：积木编辑器 (ID Key 解决失焦)
+// 🟢 积木编辑器 (定义在 Home 之外，解决失焦问题)
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   
-  // 更新块内容
   const updateBlock = (id, val, key='content') => { 
     setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); 
   };
@@ -147,11 +140,12 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
           <div key={b.id} className="block-card">
             <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
             {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
-            {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，若粘贴多行链接将自动转为媒体..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'80px'}} />}
+            {/* 🟢 内容输入框：不做实时转换，保持输入流畅 */}
+            {b.type === 'text' && <textarea className="glow-input" placeholder="输入内容或粘贴直链（支持多行，自动转换为媒体）..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'80px'}} />}
             {b.type === 'lock' && (
                <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
                  <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
-                 <textarea className="glow-input" placeholder="输入被加密内容..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'80px', border:'1px dashed #555'}} />
+                 <textarea className="glow-input" placeholder="输入内容或粘贴直链..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'80px', border:'1px dashed #555'}} />
                </div>
             )}
             <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
@@ -163,7 +157,7 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
   );
 };
 
-// 🟢 预览组件 (支持黑框对齐)
+// 🟢 预览组件
 const NotionView = ({ blocks }) => (
   <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8'}}>
     {blocks?.map((b, i) => {
@@ -205,18 +199,13 @@ export default function Home() {
 
   const handleNavClick = (idx) => { setNavIdx(idx); const modes = ['folder','covered','text','gallery']; setViewMode(modes[idx]); setSelectedFolder(null); };
 
-  // 🟢 智能逻辑 (SAVE)：修复多行链接自动转换
-  // 逐行扫描：只要某一行是 http 开头且无空格，就自动套上 ![]()
+  // 🟢 智能逻辑 (SAVE)：保存前，将纯链接 -> 清洗 -> 格式化 (![]())
   useEffect(() => {
     if(view !== 'edit') return;
     const newContent = editorBlocks.map(b => {
       let content = b.content || '';
       if (b.type === 'text' || b.type === 'lock') {
-          content = content.split('\n').map(line => {
-              const t = line.trim();
-              if (/^https?:\/\/[^\s]+$/.test(t)) return `![](${t})`;
-              return line;
-          }).join('\n');
+          content = cleanAndFormat(content); // 调用外部工具函数
       }
       if(b.type === 'h1') return `# ${content}`;
       if(b.type === 'lock') return `:::lock ${b.pwd}\n${content}\n:::`;
@@ -225,8 +214,7 @@ export default function Home() {
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 智能逻辑 (LOAD)：修复多行链接自动还原
-  // 逐行扫描：剥离 ![]() 外壳，让用户编辑时看到的是纯链接
+  // 🟢 智能逻辑 (LOAD)：加载后，剥离格式 -> 还原为纯链接
   const parseContentToBlocks = (md) => {
     if(!md) return [];
     const lines = md.split(/\r?\n/);
@@ -235,14 +223,10 @@ export default function Home() {
     let isLock = false, lockPwd = '', lockBody = [];
     
     // 剥离函数
-    const stripMd = (str) => { 
-        const match = str.match(/^!\[.*\]\((.*)\)$/);
-        return match ? match[1] : str;
-    };
+    const stripMd = (str) => { const match = str.match(/^!\[.*\]\((.*)\)$/); return match ? match[1] : str; };
 
     const flushText = () => { 
         if(currentText.length > 0) { 
-            // 逐行处理
             const processedText = currentText.map(stripMd).join('\n');
             res.push({ id: Date.now() + Math.random(), type: 'text', content: processedText }); 
             currentText = []; 
@@ -253,7 +237,6 @@ export default function Home() {
       const t = line.trim();
       if(t.startsWith(':::lock')) { flushText(); isLock = true; lockPwd = t.replace(':::lock','').trim()||'123'; lockBody = []; continue; }
       if(isLock && t === ':::') { 
-          // 加密块内部也逐行处理
           const rawBody = lockBody.map(stripMd).join('\n');
           res.push({ id: Date.now() + Math.random(), type: 'lock', pwd: lockPwd, content: rawBody }); 
           isLock = false; 
@@ -279,7 +262,6 @@ export default function Home() {
     setExpandedStep(1);
   };
 
-  // 链接清洗：只提取链接，不再加格式
   const convertLinks = () => { if(!rawLinks.trim()) return; const lines = rawLinks.split('\n').filter(l => l.trim()); const final = lines.map(l => { const m = l.match(/https?:\/\/[^\s)\]]+/); return m ? m[0] : ''; }).filter(Boolean); if(final.length > 0) { const res = final.join('\n'); setMdLinks(res); setRawLinks(res); } else { alert("未识别到链接"); } };
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
@@ -322,10 +304,9 @@ export default function Home() {
             </div>
           </main>
         ) : (
-<main style={{background:'#424242', padding:'30px', borderRadius:'20px', border:'1px solid #555'}}>
+          <main style={{background:'#424242', padding:'30px', borderRadius:'20px', border:'1px solid #555'}}>
             <StepAccordion step={1} title="基础信息 (必填)" isOpen={expandedStep === 1} onToggle={()=>setExpandedStep(expandedStep===1?0:1)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标题 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" value={form.title} onChange={e=>setForm({...form, title:e.target.value})} placeholder="输入文章标题..." /></div>
-               {/* Slug 输入框已移除，后台自动生成 */}
             </StepAccordion>
 
             <StepAccordion step={2} title="分类与时间 (必填)" isOpen={expandedStep === 2} onToggle={()=>setExpandedStep(expandedStep===2?0:2)}>
@@ -337,16 +318,14 @@ export default function Home() {
 
             <StepAccordion step={3} title="元数据与封面" isOpen={expandedStep === 3} onToggle={()=>setExpandedStep(expandedStep===3?0:3)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'greenyellow', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
-               <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} /></div>
+               <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>摘要</label><input className="glow-input" value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} /></div>
             </StepAccordion>
             
             <StepAccordion step={4} title="素材工具 (纯链接提取)" isOpen={expandedStep === 4} onToggle={()=>setExpandedStep(expandedStep===4?0:4)}>
                <div style={{background:'#303030', padding:'15px', borderRadius:'10px'}}>
-                  <button onClick={()=>window.open("https://x1file.top/home")} style={{width:'100%', padding:'10px', background:'#424242', color:'#fff', border:'1px solid #555', borderRadius:'8px', cursor:'pointer', marginBottom:'10px'}}>🎬 打开网盘获取素材</button>
-                  <textarea className="glow-input" style={{height:'100px'}} placeholder="在这里粘贴需要清洗的链接（支持 Cloudreve 批量链接）..." value={rawLinks} onChange={e=>setRawLinks(e.target.value)} />
-                  <button onClick={convertLinks} style={{width:'100%', padding:'10px', background:'greenyellow', color:'#000', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'bold', marginTop:'10px'}}>提取纯链接 (去除多余字符)</button>
-                  {mdLinks && <button onClick={()=>{navigator.clipboard.writeText(mdLinks); alert('已复制')}} style={{width:'100%', padding:'10px', background:'#444', color:'#fff', border:'1px solid #555', borderRadius:'8px', cursor:'pointer', marginTop:'10px'}}>复制结果</button>}
+                  <div className="neo-btn" onClick={()=>window.open("https://x1file.top/home")} style={{width:'100%', textAlign:'center'}}>📂 打开 Cloudreve 网盘</div>
+                  <div style={{marginTop:'10px', fontSize:'12px', color:'#666', textAlign:'center'}}>* 在上方正文编辑区粘贴链接，系统将自动进行清洗和格式转换。</div>
                </div>
             </StepAccordion>
 
