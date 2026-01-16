@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
-// --- 1. 图标库 ---
 const Icons = {
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
@@ -15,7 +14,6 @@ const Icons = {
   ChevronDown: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
 };
 
-// --- 2. 样式表 ---
 const GlobalStyle = () => (
   <style dangerouslySetInnerHTML={{__html: `
     body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
@@ -80,31 +78,7 @@ const GlobalStyle = () => (
     ::-webkit-scrollbar-thumb:hover { background: #555; }
   `}} />
 );
-
-// --- 3. 工具函数与辅助组件 ---
-
-// 🟢 核心工具：清洗 + 格式化 (支持多行)
-const cleanAndFormat = (input) => {
-  if (!input) return "";
-  const lines = input.split('\n').map(line => {
-    let raw = line.trim();
-    // 1. 剥离 Markdown 包装
-    const mdMatch = raw.match(/\((https?:\/\/[^\)]+)\)/);
-    if(mdMatch) raw = mdMatch[1];
-    
-    // 2. 提取纯净链接
-    const urlMatch = raw.match(/https?:\/\/[^\s)\]"]+/);
-    if(urlMatch) raw = urlMatch[0];
-    
-    // 3. 自动包装媒体 (Video/Image)
-    if (/https?:\/\/.*\.(jpg|jpeg|png|gif|webp|mp4|mov|webm|ogg)/i.test(raw)) {
-       return `![](${raw})`;
-    }
-    return raw;
-  });
-  return lines.join('\n');
-};
-
+// 全屏加载
 const FullScreenLoader = () => (<div className="loader-overlay"><div className="loader"><svg viewBox="0 0 200 60" width="200" height="60"><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M20,50 L20,10 L50,10 C65,10 65,30 50,30 L20,30" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M80,50 L80,10 L110,10 C125,10 125,30 110,30 L80,30 M100,30 L120,50" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M140,30 A20,20 0 1,0 180,30 A20,20 0 1,0 140,30" /></svg></div><div className="loader-text">SYSTEM PROCESSING</div></div>);
 
 const AnimatedBtn = ({ text, onClick, style }) => (<button className="animated-button" onClick={onClick} style={style}><svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg><span className="text">{text}</span><span className="circle"></span><svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg></button>);
@@ -118,7 +92,25 @@ const SearchInput = ({ value, onChange }) => (<div className="group"><svg classN
 
 const StepAccordion = ({ step, title, isOpen, onToggle, children }) => (<div><div className="acc-btn" onClick={onToggle}><div style={{fontWeight:'bold'}}><span style={{color:'greenyellow', marginRight:'10px'}}>Step {step}</span>{title}</div><div style={{transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'0.3s'}}><Icons.ChevronDown /></div></div><div className={`acc-content ${isOpen ? 'open' : ''}`}>{children}</div></div>);
 
-// 🟢 积木编辑器 (定义在 Home 之外，解决失焦问题)
+// 🟢 核心工具：智能清洗+格式化 (支持多行)
+const cleanAndFormat = (input) => {
+  if (!input) return "";
+  const lines = input.split('\n').map(line => {
+    let raw = line.trim();
+    // 1. 剥离 Markdown 包装 (包括 ![]() 和 []())
+    const mdMatch = raw.match(/(?:!|)?\[.*?\]\((.*?)\)/);
+    if(mdMatch) raw = mdMatch[1];
+    
+    // 2. 提取纯净链接
+    const urlMatch = raw.match(/https?:\/\/[^\s)\]"]+/);
+    if(urlMatch) raw = urlMatch[0];
+    
+    // 3. (可选) 此处不自动包装，包装逻辑在保存时统一处理
+    return raw;
+  });
+  return lines.join('\n');
+};
+
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   
@@ -140,12 +132,12 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
           <div key={b.id} className="block-card">
             <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
             {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
-            {/* 🟢 内容输入框：不做实时转换，保持输入流畅 */}
-            {b.type === 'text' && <textarea className="glow-input" placeholder="输入内容或粘贴直链（支持多行，自动转换为媒体）..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'80px'}} />}
+            {/* 🟢 优化：输入框高度增加到 200px */}
+            {b.type === 'text' && <textarea className="glow-input" placeholder="输入内容或粘贴直链（支持多行，保存时自动格式化）..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
             {b.type === 'lock' && (
                <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
                  <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
-                 <textarea className="glow-input" placeholder="输入内容或粘贴直链..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'80px', border:'1px dashed #555'}} />
+                 <textarea className="glow-input" placeholder="输入内容或粘贴直链..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px', border:'1px dashed #555'}} />
                </div>
             )}
             <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
@@ -157,7 +149,6 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
   );
 };
 
-// 🟢 预览组件
 const NotionView = ({ blocks }) => (
   <div style={{color:'#e1e1e3', fontSize:'15px', lineHeight:'1.8'}}>
     {blocks?.map((b, i) => {
@@ -165,18 +156,8 @@ const NotionView = ({ blocks }) => (
       if(type==='heading_1') return <h1 key={i} style={{fontSize:'1.8em', borderBottom:'1px solid #333', paddingBottom:'8px', margin:'24px 0 12px'}}>{text}</h1>;
       if(type==='paragraph') return <p key={i} style={{margin:'10px 0', minHeight:'1em'}}>{text}</p>;
       if(type==='divider') return <hr key={i} style={{border:'none', borderTop:'1px solid #444', margin:'24px 0'}} />;
-      if(type==='image') { 
-        const url = data?.file?.url || data?.external?.url; if (!url) return null; 
-        const isVideo = url.match(/\.(mp4|mov|webm|ogg)(\?|$)/i); 
-        if(isVideo) return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}><div style={{width:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000', display:'flex', justifyContent:'center'}}><video src={url} controls preload="metadata" style={{maxWidth:'100%', maxHeight:'100%'}} /></div></div>; 
-        return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}><div style={{width: '100%', height: '500px', background: '#000', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}><img src={url} style={{maxWidth: '100%', maxHeight: '100%', objectFit: 'contain'}} alt="" /></div></div>; 
-      }
-      if(type==='video' || type==='embed') { 
-        let url = data?.file?.url || data?.external?.url || data?.url; if(!url) return null; 
-        const isY = url.includes('youtube')||url.includes('youtu.be'); 
-        if(isY){if(url.includes('watch?v='))url=url.replace('watch?v=','embed/');if(url.includes('youtu.be/'))url=url.replace('youtu.be/','www.youtube.com/embed/');} 
-        return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>{(type==='embed'||isY)?<iframe src={url} style={{width:'100%',maxWidth:'800px',height:'450px',border:'none',borderRadius:'8px',background:'#000'}} allowFullScreen />:<video src={url} controls style={{width:'100%',maxHeight:'500px',borderRadius:'8px',background:'#000'}}/>}</div>; 
-      }
+      if(type==='image') { const url = data?.file?.url || data?.external?.url; if (!url) return null; const isVideo = url.match(/\.(mp4|mov|webm|ogg)(\?|$)/i); if(isVideo) return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}><div style={{width:'100%', maxHeight:'500px', borderRadius:'8px', background:'#000', display:'flex', justifyContent:'center'}}><video src={url} controls preload="metadata" style={{maxWidth:'100%', maxHeight:'100%'}} /></div></div>; return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}><div style={{width: '100%', height: '500px', background: '#000', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}><img src={url} style={{maxWidth: '100%', maxHeight: '100%', objectFit: 'contain'}} alt="" /></div></div>; }
+      if(type==='video' || type==='embed') { let url = data?.file?.url || data?.external?.url || data?.url; if(!url) return null; const isY = url.includes('youtube')||url.includes('youtu.be'); if(isY){if(url.includes('watch?v='))url=url.replace('watch?v=','embed/');if(url.includes('youtu.be/'))url=url.replace('youtu.be/','www.youtube.com/embed/');} return <div key={i} style={{display:'flex', justifyContent:'center', margin:'20px 0'}}>{(type==='embed'||isY)?<iframe src={url} style={{width:'100%',maxWidth:'800px',height:'450px',border:'none',borderRadius:'8px',background:'#000'}} allowFullScreen />:<video src={url} controls style={{width:'100%',maxHeight:'500px',borderRadius:'8px',background:'#000'}}/>}</div>; }
       if(type==='callout') return <div key={i} style={{background:'#2d2d30', padding:'20px', borderRadius:'12px', border:'1px solid #3e3e42', display:'flex', gap:'15px', margin:'20px 0'}}><div style={{fontSize:'1.4em'}}>{b.callout.icon?.emoji || '🔒'}</div><div style={{flex:1}}><div style={{fontWeight:'bold', color:'greenyellow', marginBottom:'4px'}}>{text}</div><div style={{fontSize:'12px', opacity:0.5}}>[ 加密内容已受保护 ]</div></div></div>;
       return null;
     })}
@@ -199,13 +180,20 @@ export default function Home() {
 
   const handleNavClick = (idx) => { setNavIdx(idx); const modes = ['folder','covered','text','gallery']; setViewMode(modes[idx]); setSelectedFolder(null); };
 
-  // 🟢 智能逻辑 (SAVE)：保存前，将纯链接 -> 清洗 -> 格式化 (![]())
+  // 🟢 智能逻辑 (SAVE)：保存时，逐行检测，将纯链接转为 ![]()
   useEffect(() => {
     if(view !== 'edit') return;
     const newContent = editorBlocks.map(b => {
       let content = b.content || '';
       if (b.type === 'text' || b.type === 'lock') {
-          content = cleanAndFormat(content); // 调用外部工具函数
+          content = content.split('\n').map(line => {
+              const t = line.trim();
+              // 只要这一行以 http 开头，且不包含 Markdown 括号，就视为纯链接，自动包装
+              if (/^https?:\/\//.test(t) && !t.startsWith('![')) {
+                  return `![](${t})`;
+              }
+              return line;
+          }).join('\n');
       }
       if(b.type === 'h1') return `# ${content}`;
       if(b.type === 'lock') return `:::lock ${b.pwd}\n${content}\n:::`;
@@ -214,7 +202,7 @@ export default function Home() {
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 智能逻辑 (LOAD)：加载后，剥离格式 -> 还原为纯链接
+  // 🟢 智能逻辑 (LOAD)：加载时，逐行剥离 ![]() 和 []()
   const parseContentToBlocks = (md) => {
     if(!md) return [];
     const lines = md.split(/\r?\n/);
@@ -223,7 +211,11 @@ export default function Home() {
     let isLock = false, lockPwd = '', lockBody = [];
     
     // 剥离函数
-    const stripMd = (str) => { const match = str.match(/^!\[.*\]\((.*)\)$/); return match ? match[1] : str; };
+    const stripMd = (str) => { 
+        // 匹配 ![]() 或 []()
+        const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/);
+        return match ? match[1] : str;
+    };
 
     const flushText = () => { 
         if(currentText.length > 0) { 
@@ -262,7 +254,6 @@ export default function Home() {
     setExpandedStep(1);
   };
 
-  const convertLinks = () => { if(!rawLinks.trim()) return; const lines = rawLinks.split('\n').filter(l => l.trim()); const final = lines.map(l => { const m = l.match(/https?:\/\/[^\s)\]]+/); return m ? m[0] : ''; }).filter(Boolean); if(final.length > 0) { const res = final.join('\n'); setMdLinks(res); setRawLinks(res); } else { alert("未识别到链接"); } };
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
   const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
@@ -318,6 +309,7 @@ export default function Home() {
 
             <StepAccordion step={3} title="元数据与封面" isOpen={expandedStep === 3} onToggle={()=>setExpandedStep(expandedStep===3?0:3)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'greenyellow', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
+               {/* 🟢 封面输入框：失去焦点时自动清洗 */}
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>摘要</label><input className="glow-input" value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} /></div>
             </StepAccordion>
@@ -325,7 +317,7 @@ export default function Home() {
             <StepAccordion step={4} title="素材工具 (纯链接提取)" isOpen={expandedStep === 4} onToggle={()=>setExpandedStep(expandedStep===4?0:4)}>
                <div style={{background:'#303030', padding:'15px', borderRadius:'10px'}}>
                   <div className="neo-btn" onClick={()=>window.open("https://x1file.top/home")} style={{width:'100%', textAlign:'center'}}>📂 打开 Cloudreve 网盘</div>
-                  <div style={{marginTop:'10px', fontSize:'12px', color:'#666', textAlign:'center'}}>* 在上方正文编辑区粘贴链接，系统将自动进行清洗和格式转换。</div>
+                  <div style={{marginTop:'10px', fontSize:'12px', color:'#666', textAlign:'center'}}>* 提示：在上方正文编辑区粘贴直链（支持多行），系统将在保存时自动完成清洗和格式转换。</div>
                </div>
             </StepAccordion>
 
