@@ -78,34 +78,18 @@ export default function Home() {
       .acc-content { overflow: hidden; transition: max-height 0.3s ease; max-height: 0; padding: 0 10px; }
       .acc-content.open { max-height: 500px; padding-bottom: 20px; }
 
-      /* 🟢 核心新样式：Neo-Brutalist 按钮 */
-      .neo-btn {
-        --bg: #333;
-        --hover-bg: greenyellow;
-        --hover-text: #000;
-        color: #fff;
-        cursor: pointer;
-        border: 1px solid #000;
-        border-radius: 8px;
-        padding: 0.8em 2em;
-        background: var(--bg);
-        transition: 0.2s;
-        font-weight: bold;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        box-shadow: 2px 2px 0px #000;
-        display: flex; justify-content: center; align-items: center; gap: 8px;
-      }
-      .neo-btn:hover {
-        color: var(--hover-text);
-        transform: translate(-2px, -2px);
-        background: var(--hover-bg);
-        box-shadow: 4px 4px 0px #000;
-      }
-      .neo-btn:active {
-        transform: translate(0, 0);
-        box-shadow: 0px 0px 0px #000;
-      }
+      .neo-btn { --bg: #000; --hover-bg: #ff90e8; --hover-text: #000; color: #fff; cursor: pointer; border: 1px solid var(--bg); border-radius: 4px; padding: 0.8em 2em; background: var(--bg); transition: 0.2s; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+      .neo-btn:hover { color: var(--hover-text); transform: translate(-0.25rem, -0.25rem); background: var(--hover-bg); box-shadow: 0.25rem 0.25rem var(--bg); border-color: var(--hover-bg); }
+      .neo-btn:active { transform: translate(0); box-shadow: none; }
+
+      /* 🟢 搜索框新样式 */
+      .group { display: flex; line-height: 28px; align-items: center; position: relative; max-width: 240px; }
+      .input { font-family: "Montserrat", sans-serif; width: 100%; height: 45px; padding-left: 2.5rem; box-shadow: 0 0 0 1.5px #2b2c37, 0 0 25px -17px #000; border: 0; border-radius: 12px; background-color: #16171d; outline: none; color: #bdbecb; transition: all 0.25s cubic-bezier(0.19, 1, 0.22, 1); cursor: text; z-index: 0; }
+      .input::placeholder { color: #bdbecb; }
+      .input:hover { box-shadow: 0 0 0 2.5px #2f303d, 0px 0px 25px -15px #000; }
+      .input:active { transform: scale(0.95); }
+      .input:focus { box-shadow: 0 0 0 2.5px #2f303d; }
+      .search-icon { position: absolute; left: 1rem; fill: #bdbecb; width: 1rem; height: 1rem; pointer-events: none; z-index: 1; }
       
       ::-webkit-scrollbar { width: 8px; }
       ::-webkit-scrollbar-track { background: #202024; }
@@ -119,45 +103,53 @@ export default function Home() {
   // 极客按钮
   const AnimatedBtn = ({ text, onClick, style }) => (<button className="animated-button" onClick={onClick} style={style}><svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg><span className="text">{text}</span><span className="circle"></span><svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg></button>);
 
-  // 滑块导航
-  const SlidingNav = ({ activeIdx, onSelect, isSearchOpen }) => {
-    const icons = [Icons.Search, Icons.FolderMode, Icons.CoverMode, Icons.TextMode, Icons.GridMode];
+  // 滑块导航 (去除了搜索)
+  const SlidingNav = ({ activeIdx, onSelect }) => {
+    const icons = [Icons.FolderMode, Icons.CoverMode, Icons.TextMode, Icons.GridMode];
     return (<div className="nav-container"><div className="nav-glider" style={{ left: `${activeIdx * 45 + 5}px`, width: '40px' }} />{icons.map((Icon, i) => (<div key={i} className={`nav-item ${activeIdx === i ? 'active' : ''}`} onClick={() => onSelect(i)}><Icon /></div>))}</div>);
   };
+
+  // 🟢 极客搜索框
+  const SearchInput = ({ value, onChange }) => (
+    <div className="group">
+      <svg className="search-icon" aria-hidden="true" viewBox="0 0 24 24"><g><path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z"></path></g></svg>
+      <input placeholder="Search" type="search" className="input" value={value} onChange={onChange} />
+    </div>
+  );
 
   // 手风琴
   const StepAccordion = ({ step, title, isOpen, onToggle, children }) => (<div><div className="acc-btn" onClick={onToggle}><div style={{fontWeight:'bold'}}><span style={{color:'greenyellow', marginRight:'10px'}}>Step {step}</span>{title}</div><div style={{transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'0.3s'}}><Icons.ChevronDown /></div></div><div className={`acc-content ${isOpen ? 'open' : ''}`}>{children}</div></div>);
 
-  // 🟢 积木编辑器 (已移出 Home 组件，解决输入失焦 BUG)
+  // 🟢 积木编辑器 (核心修复：使用 ID 作为 Key)
   const BlockBuilder = ({ blocks, setBlocks }) => {
-    const addBlock = (type) => setBlocks([...blocks, { type, content: '', pwd: '123' }]);
-    const updateBlock = (i, val, key='content') => { 
-      // 使用 map 生成新数组，确保 React 感知状态变化但 Key 不变
-      setBlocks(blocks.map((b, idx) => idx === i ? { ...b, [key]: val } : b)); 
+    // 关键：生成唯一 ID
+    const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
+    const updateBlock = (id, val, key='content') => { 
+      setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); 
     };
-    const removeBlock = (i) => { if(confirm('删除此块？')) setBlocks(blocks.filter((_, idx) => idx !== i)); };
+    const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
     return (
       <div style={{marginTop:'30px'}}>
-        {/* 🟢 新拟态按钮组 */}
         <div style={{display:'flex', gap:'15px', marginBottom:'25px', justifyContent:'center'}}>
           <div className="neo-btn" onClick={()=>addBlock('h1')}>H1 标题</div>
           <div className="neo-btn" onClick={()=>addBlock('text')}>📝 内容块</div>
           <div className="neo-btn" onClick={()=>addBlock('lock')}>🔒 加密块</div>
         </div>
         <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
-          {blocks.map((b, i) => (
-            <div key={i} className="block-card">
+          {blocks.map((b) => (
+            // 🟢 关键修复：使用 b.id 作为 key
+            <div key={b.id} className="block-card">
               <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
-              {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(i, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
-              {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，若只输入链接将自动转为媒体..." value={b.content} onChange={e=>updateBlock(i, e.target.value)} style={{minHeight:'80px'}} />}
+              {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
+              {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，若只输入链接将自动转为媒体..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'80px'}} />}
               {b.type === 'lock' && (
                  <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
-                   <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(i, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
-                   <textarea className="glow-input" placeholder="输入被加密内容，若只输入链接将自动转为媒体..." value={b.content} onChange={e=>updateBlock(i, e.target.value)} style={{minHeight:'80px', border:'1px dashed #555'}} />
+                   <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
+                   <textarea className="glow-input" placeholder="输入被加密内容，若只输入链接将自动转为媒体..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'80px', border:'1px dashed #555'}} />
                  </div>
               )}
-              <div className="block-del" onClick={()=>removeBlock(i)}><Icons.Trash /></div>
+              <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
             </div>
           ))}
           {blocks.length === 0 && <div style={{textAlign:'center', color:'#666', padding:'40px', border:'2px dashed #444', borderRadius:'12px'}}>👋 暂无内容，请点击上方按钮添加模块</div>}
@@ -183,8 +175,7 @@ export default function Home() {
 const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
   const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null), [rawLinks, setRawLinks] = useState(''), [mdLinks, setMdLinks] = useState('');
   
-  const [navIdx, setNavIdx] = useState(1);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [navIdx, setNavIdx] = useState(0); // 0:Folder, 1:Cover, 2:Text, 3:Gallery
   const [expandedStep, setExpandedStep] = useState(1);
   const [editorBlocks, setEditorBlocks] = useState([]);
 
@@ -193,18 +184,21 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
   async function fetchPosts() { setLoading(true); try { const r = await fetch('/api/posts'); const d = await r.json(); if (d.success) { setPosts(d.posts || []); setOptions(d.options || { categories: [], tags: [] }); } } finally { setLoading(false); } }
   useEffect(() => { if (mounted) fetchPosts(); }, [mounted]);
 
-  const handleNavClick = (idx) => { setNavIdx(idx); if(idx === 0) { setIsSearchOpen(!isSearchOpen); } else { setIsSearchOpen(false); const modes = ['folder','covered','text','gallery']; setViewMode(modes[idx-1]); setSelectedFolder(null); } };
+  // 导航逻辑 (已移除 Search toggle)
+  const handleNavClick = (idx) => { 
+    setNavIdx(idx); 
+    const modes = ['folder','covered','text','gallery']; 
+    setViewMode(modes[idx]); 
+    setSelectedFolder(null); 
+  };
 
-  // 🟢 智能保存逻辑：检测纯链接 -> 自动转换为 Markdown 媒体语法
   useEffect(() => {
     if(view !== 'edit') return;
     const newContent = editorBlocks.map(b => {
       let content = b.content;
-      // 如果是 Text 或 Lock 块，且内容仅仅是一个 http 链接，则自动包裹 ![]()
       if ((b.type === 'text' || b.type === 'lock') && /^https?:\/\/[^\s]+$/.test(content.trim())) {
           content = `![](${content.trim()})`;
       }
-      
       if(b.type === 'h1') return `# ${content}`;
       if(b.type === 'lock') return `:::lock ${b.pwd}\n${content}\n:::`;
       return content;
@@ -212,7 +206,6 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 智能加载逻辑：检测 Markdown 媒体语法 -> 还原为纯链接
   const parseContentToBlocks = (md) => {
     if(!md) return [];
     const lines = md.split(/\r?\n/);
@@ -220,17 +213,13 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
     let currentText = [];
     let isLock = false, lockPwd = '', lockBody = [];
     
-    // 辅助：尝试从 Markdown 图片语法中提取纯链接
-    const stripMd = (str) => {
-        const match = str.match(/^!\[.*\]\((.*)\)$/);
-        return match ? match[1] : str;
-    };
+    const stripMd = (str) => { const match = str.match(/^!\[.*\]\((.*)\)$/); return match ? match[1] : str; };
 
     const flushText = () => { 
         if(currentText.length > 0) { 
-            // 批量处理累积的文本行
             const processedText = currentText.map(stripMd).join('\n');
-            res.push({ type: 'text', content: processedText }); 
+            // 🟢 给解析出的块也加上 ID
+            res.push({ id: Date.now() + Math.random(), type: 'text', content: processedText }); 
             currentText = []; 
         } 
     };
@@ -239,14 +228,13 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
       const t = line.trim();
       if(t.startsWith(':::lock')) { flushText(); isLock = true; lockPwd = t.replace(':::lock','').trim()||'123'; lockBody = []; continue; }
       if(isLock && t === ':::') { 
-          // 加密块内部也进行去语法处理
           const rawBody = lockBody.map(stripMd).join('\n');
-          res.push({ type: 'lock', pwd: lockPwd, content: rawBody }); 
+          res.push({ id: Date.now() + Math.random(), type: 'lock', pwd: lockPwd, content: rawBody }); 
           isLock = false; 
           continue; 
       }
       if(isLock) { lockBody.push(line); continue; }
-      if(t.startsWith('# ')) { flushText(); res.push({ type: 'h1', content: t.replace('# ','') }); continue; }
+      if(t.startsWith('# ')) { flushText(); res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); continue; }
       currentText.push(line);
     }
     flushText();
@@ -257,10 +245,9 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
   
   const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setEditorBlocks(parseContentToBlocks(d.data.content)); setCurrentId(p.id); setView('edit'); setExpandedStep(1); } }).finally(()=>setLoading(false)); };
   
-  // 🟢 新建：默认不添加任何块
   const handleCreate = () => {
     setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: activeTab, date: new Date().toISOString().split('T')[0] });
-    setEditorBlocks([]); // 空白起始
+    setEditorBlocks([]); // 默认空白
     setCurrentId(null); 
     setView('edit');
     setExpandedStep(1);
@@ -277,12 +264,15 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
       {loading && <FullScreenLoader />}
       
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-        {/* 🟢 顶部布局调整：左(Logo) - 右(教程+发布) */}
+        {/* 🟢 顶部布局调整：左(搜索框) - 右(教程+发布) */}
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-           <div style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '1px' }}>PRO<span style={{ color: '#007aff' }}>BLOG</span></div>
+           <div>
+             {/* 🟢 左侧：仅在列表页显示搜索框 */}
+             {view === 'list' && <SearchInput value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />}
+           </div>
            <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-             {/* 🟢 黄框位置：教程按钮 */}
-             <button onClick={() => window.open('https://pan.cloudreve.org/xxx', '_blank')} style={{background:'#a855f7', border:'none', padding:'8px 15px', borderRadius:'8px', color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', gap:'5px', fontWeight:'bold', fontSize:'13px'}} className="btn-ia"><Icons.Tutorial /> 教程</button>
+             {/* 🟢 右侧：教程按钮 (加大) */}
+             <button onClick={() => window.open('https://pan.cloudreve.org/xxx', '_blank')} style={{background:'#a855f7', border:'none', padding:'10px 20px', borderRadius:'8px', color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', gap:'5px', fontWeight:'bold', fontSize:'14px'}} className="btn-ia"><Icons.Tutorial /> 教程</button>
              {view === 'list' ? <AnimatedBtn text="发布新内容" onClick={handleCreate} /> : <AnimatedBtn text="返回列表" onClick={() => setView('list')} />}
            </div>
         </header>
@@ -292,13 +282,11 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
             {/* 🟢 主工具栏布局：左(Tabs) - 右(红框位置: 滑块导航) */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
                <div style={{background:'#424242', padding:'5px', borderRadius:'12px', display:'flex'}}>{['Post', 'Widget'].map(t => <button key={t} onClick={() => { setActiveTab(t); setSelectedFolder(null); }} style={activeTab === t ? {padding:'8px 20px', border:'none', background:'#555', color:'#fff', borderRadius:'10px', fontWeight:'bold', fontSize:'13px', cursor:'pointer'} : {padding:'8px 20px', border:'none', background:'none', color:'#888', borderRadius:'10px', fontWeight:'bold', fontSize:'13px', cursor:'pointer'}}>{t === 'Post' ? '已发布' : '组件'}</button>)}</div>
-               <SlidingNav activeIdx={navIdx} onSelect={handleNavClick} isSearchOpen={isSearchOpen} />
+               <SlidingNav activeIdx={navIdx} onSelect={handleNavClick} />
             </div>
             
-            {isSearchOpen && <input className="glow-input" style={{width:'100%', marginBottom:'20px'}} placeholder="搜索标题或Slug..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />}
-            
             <div style={viewMode === 'gallery' || viewMode === 'folder' ? {display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'15px'} : {}}>
-              {viewMode === 'folder' && options.categories.map(cat => <div key={cat} onClick={()=>{setSelectedFolder(cat); handleNavClick(2);}} style={{padding:'15px', background:'#424242', borderRadius:'10px', display:'flex', alignItems:'center', gap:'12px', border:'1px solid #555', cursor:'pointer'}} className="btn-ia"><Icons.FolderIcon />{cat}</div>)}
+              {viewMode === 'folder' && options.categories.map(cat => <div key={cat} onClick={()=>{setSelectedFolder(cat); handleNavClick(1);}} style={{padding:'15px', background:'#424242', borderRadius:'10px', display:'flex', alignItems:'center', gap:'12px', border:'1px solid #555', cursor:'pointer'}} className="btn-ia"><Icons.FolderIcon />{cat}</div>)}
               {viewMode !== 'folder' && filtered.map(p => (
                 <div key={p.id} onClick={() => handlePreview(p)} className="card-item" style={viewMode === 'text' ? {display:'flex', alignItems:'center', padding:'16px 20px', borderRadius:'12px', background:'#424242', marginBottom:'8px'} : viewMode === 'gallery' ? {display:'flex', flexDirection:'column', height:'auto', background:'#424242', borderRadius:'12px', marginBottom:'12px'} : {}}>
                   {viewMode === 'covered' && <><div style={{width:'160px', flexShrink:0, background:'#303030', display:'flex', alignItems:'center', justifyContent:'center'}}>{p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{fontSize:'28px', color:'#444'}}>{activeTab[0]}</div>}</div><div style={{padding:'20px 35px', flex:1}}><div style={{fontWeight:'bold', fontSize:'20px', color:'#fff', marginBottom:'8px'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div></>}
@@ -313,7 +301,7 @@ const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('co
 <main style={{background:'#424242', padding:'30px', borderRadius:'20px', border:'1px solid #555'}}>
             <StepAccordion step={1} title="基础信息 (必填)" isOpen={expandedStep === 1} onToggle={()=>setExpandedStep(expandedStep===1?0:1)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标题 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" value={form.title} onChange={e=>setForm({...form, title:e.target.value})} placeholder="输入文章标题..." /></div>
-               <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>Slug (URL别名)</label><input className="glow-input" value={form.slug} onChange={e=>setForm({...form, slug:e.target.value})} /></div>
+               {/* 🟢 Slug 已隐藏，后台自动生成 */}
             </StepAccordion>
 
             <StepAccordion step={2} title="分类与时间 (必填)" isOpen={expandedStep === 2} onToggle={()=>setExpandedStep(expandedStep===2?0:2)}>
