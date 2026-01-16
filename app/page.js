@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
-// --- 1. 图标库 ---
 const Icons = {
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
@@ -13,11 +12,10 @@ const Icons = {
   Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
   Tutorial: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
   ChevronDown: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>,
-  DragHandle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><circle cx="4" cy="6" r="2"></circle><circle cx="4" cy="12" r="2"></circle><circle cx="4" cy="18" r="2"></circle></svg>,
+  DragHandle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><circle cx="4" cy="6" r="2"></circle><circle cx="4" cy="12" r="2"></circle><circle cx="4" cy="18" r="2"></circle></svg>,
   Cloud: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
 };
 
-// --- 2. 样式表 ---
 const GlobalStyle = () => (
   <style dangerouslySetInnerHTML={{__html: `
     body { background-color: #303030; color: #ffffff; margin: 0; font-family: system-ui, sans-serif; overflow-x: hidden; }
@@ -58,21 +56,23 @@ const GlobalStyle = () => (
     .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
     .nav-item.active { color: #000; font-weight: bold; }
     
-    /* 🟢 积木拖拽优化 */
-    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; transition: border 0.2s, transform 0.2s; }
+    /* 🟢 积木拖拽终极修复 */
+    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; transition: border 0.2s, transform 0.2s; cursor: default; }
     .block-card:hover { border-color: greenyellow; }
-    .block-card.dragging { opacity: 0.3; transform: scale(0.98); border: 1px dashed greenyellow; }
+    .block-card.dragging { opacity: 0.3; background: #1a1a1d; border: 1px dashed greenyellow; }
     
-    /* 🟢 拖拽手柄：更大更易点 */
+    /* 手柄样式：位于左侧，鼠标放上去是 Grab */
     .block-drag-handle { 
-        position: absolute; left: 5px; top: 50%; transform: translateY(-50%); 
-        cursor: grab; padding: 8px; color: #666; transition: 0.2s; 
+        position: absolute; left: 0; top: 0; bottom: 0; width: 40px; 
+        display: flex; align-items: center; justify-content: center;
+        cursor: grab; color: #666; transition: 0.2s; 
     }
-    .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.1); border-radius: 6px; }
+    .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); }
     .block-drag-handle:active { cursor: grabbing; }
 
-    .drop-indicator { height: 4px; background: greenyellow; margin: 5px 0; border-radius: 2px; box-shadow: 0 0 8px greenyellow; animation: fadeIn 0.2s; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    /* 绿线指示器：加粗，带发光 */
+    .drop-indicator { height: 4px; background: greenyellow; margin: 8px 0; border-radius: 2px; box-shadow: 0 0 10px greenyellow; animation: fadeIn 0.15s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: scaleX(0.8); } to { opacity: 1; transform: scaleX(1); } }
 
     .block-del { position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: #ff4d4f; border-radius: 0 10px 10px 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; cursor: pointer; color: white; }
     .block-card:hover .block-del { opacity: 1; right: -40px; }
@@ -114,6 +114,7 @@ const SearchInput = ({ value, onChange }) => (<div className="group"><svg classN
 
 const StepAccordion = ({ step, title, isOpen, onToggle, children }) => (<div><div className="acc-btn" onClick={onToggle}><div style={{fontWeight:'bold'}}><span style={{color:'greenyellow', marginRight:'10px'}}>Step {step}</span>{title}</div><div style={{transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'0.3s'}}><Icons.ChevronDown /></div></div><div className={`acc-content ${isOpen ? 'open' : ''}`}>{children}</div></div>);
 
+// 🟢 核心：恢复了媒体自动包装逻辑
 const cleanAndFormat = (input) => {
   if (!input) return "";
   const lines = input.split('\n').map(line => {
@@ -123,6 +124,8 @@ const cleanAndFormat = (input) => {
     if(mdMatch) raw = mdMatch[1];
     const urlMatch = raw.match(/https?:\/\/[^\s)\]"]+/);
     if(urlMatch) raw = urlMatch[0];
+    
+    // 自动包装媒体
     if (/\.(jpg|jpeg|png|gif|webp|bmp|svg|mp4|mov|webm|ogg|mkv)(\?|$)/i.test(raw)) {
        return `![](${raw})`;
     }
@@ -131,27 +134,36 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
-// 🟢 积木编辑器：拖拽手柄逻辑修复
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
-  // 🟢 状态：控制哪一个块处于“可拖拽”状态
-  const [draggableId, setDraggableId] = useState(null);
 
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
+  // 🟢 拖拽开始：检查是否按住了手柄
   const handleDragStart = (e, index) => {
+    if (!e.target.closest('.block-drag-handle')) {
+      e.preventDefault(); // 不是手柄，禁止拖拽，允许选文字
+      return;
+    }
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = "move";
+    // 设置幽灵图像 (可选)
   };
 
   const handleDragOver = (e, index) => {
     e.preventDefault();
-    if (e.clientY < 150) window.scrollBy(0, -10);
-    if (e.clientY > window.innerHeight - 150) window.scrollBy(0, 10);
+    // 自动滚动
+    if (e.clientY < 150) window.scrollBy(0, -5);
+    if (e.clientY > window.innerHeight - 150) window.scrollBy(0, 5);
+    
     if (dragOverIndex !== index) setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    // 暂时不做清理，防止闪烁
   };
 
   const handleDrop = () => {
@@ -182,25 +194,16 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
             
             <div 
               className={`block-card ${draggedIndex === index ? 'dragging' : ''}`}
-              // 🟢 关键：只有鼠标按住 Handle 时，draggable 才为 true
-              draggable={draggableId === b.id}
+              draggable="true"
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={handleDrop}
             >
-              {/* 🟢 拖拽手柄：绑定鼠标事件 */}
-              <div 
-                className="block-drag-handle" 
-                onMouseEnter={() => setDraggableId(b.id)}
-                onMouseLeave={() => setDraggableId(null)}
-              >
-                <Icons.DragHandle />
-              </div>
-              
+              <div className="block-drag-handle"><Icons.DragHandle /></div>
               <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
               
               {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
-              {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，直接粘贴多行链接..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
+              {b.type === 'text' && <textarea className="glow-input" placeholder="输入内容或粘贴直链（支持多行，自动转换为媒体）..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
               {b.type === 'lock' && (
                  <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
                    <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
@@ -250,25 +253,23 @@ export default function Home() {
 
   const handleNavClick = (idx) => { setNavIdx(idx); const modes = ['folder','covered','text','gallery']; setViewMode(modes[idx]); setSelectedFolder(null); };
 
-  // 🟢 保存逻辑：块之间用 \n\n 连接，块内部保持原样
+  // 🟢 保存：应用清洗，使用双换行连接块
   useEffect(() => {
     if(view !== 'edit') return;
     const newContent = editorBlocks.map(b => {
       let content = b.content || '';
-      // 自动格式化：仅当内容是多行链接时处理
       if (b.type === 'text' || b.type === 'lock') content = cleanAndFormat(content); 
       if(b.type === 'h1') return `# ${content}`;
       if(b.type === 'lock') return `:::lock ${b.pwd}\n${content}\n:::`;
       return content;
-    }).join('\n\n'); // 🟢 双换行分隔块
+    }).join('\n\n'); 
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 加载逻辑：用 \n\n 分割块，确保块结构恢复
+  // 🟢 加载：使用双换行解析块 (保持块完整性)
   const parseContentToBlocks = (md) => {
     if(!md) return [];
-    // 🟢 使用双换行符分割大块
-    const rawBlocks = md.split(/\n{2,}/);
+    const rawBlocks = md.split(/\n{2,}/); // 关键！
     const res = [];
     
     const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
@@ -277,23 +278,19 @@ export default function Home() {
       let t = rawBlock.trim();
       if(!t) continue;
 
-      // 加密块处理
       if(t.startsWith(':::lock')) { 
         const pwd = t.match(/:::lock\s+(.*?)\n/)?.[1] || '123';
         const content = t.replace(/:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
-        // 内部内容剥离格式
         const strippedContent = content.split('\n').map(stripMd).join('\n');
         res.push({ id: Date.now() + Math.random(), type: 'lock', pwd, content: strippedContent });
         continue;
       }
       
-      // 标题处理
       if(t.startsWith('# ')) { 
         res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); 
         continue; 
       }
       
-      // 普通文本：保留内部换行，剥离链接格式
       const strippedContent = t.split('\n').map(stripMd).join('\n');
       res.push({ id: Date.now() + Math.random(), type: 'text', content: strippedContent });
     }
