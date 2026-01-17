@@ -8,16 +8,23 @@ const n2m = new NotionToMarkdown({ notionClient: notion });
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// 🔄 递归解析行：把一个大文本块拆解为多个 Notion 积木
-function parseLinesToBlocks(text) {
-  const lines = text.split(/\r?\n/);
+// 辅助：解析行内容为 Notion 积木 (Image/Video/Text)
+function parseContentToNotionChildren(textBuffer) {
   const blocks = [];
+  // 这里按行处理，避免一个 Text 块里包含太多换行导致 Notion 渲染丑陋
+  // 但为了保持紧凑，我们可以把连续文本合并。
+  // 简单起见，我们逐行判断。
+  const lines = textBuffer; // textBuffer 已经是数组 array of lines
   
   for (let line of lines) {
     const trimmed = line.trim();
-    if (!trimmed) continue;
+    if (!trimmed) {
+       // 保留空行作为空段落，或者跳过（取决于是否想要紧凑）
+       // 这里跳过空行，实现紧凑
+       continue; 
+    }
 
-    // 1. 媒体识别 (支持 ![]() 和 [])
+    // 1. 媒体识别
     const mediaMatch = trimmed.match(/(?:!|)?\[.*?\]\((.*?)\)/);
     if (mediaMatch) {
       let url = mediaMatch[1].trim();
@@ -35,88 +42,79 @@ function parseLinesToBlocks(text) {
     // 2. 标题
     if (trimmed.startsWith('# ')) {
       blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } });
-    } else if (trimmed.startsWith('## ')) {
-      blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ text: { content: trimmed.replace('## ', '') } }] } });
-    } 
-    // 3. 普通文本
-    else {
-      blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: trimmed } }] } });
+      continue;
     }
+    if (trimmed.startsWith('## ')) {
+      blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ text: { content: trimmed.replace('## ', '') } }] } });
+      continue;
+    }
+
+    // 3. 普通文本
+    blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: line } }] } });
   }
   return blocks;
 }
 
 function mdToBlocks(markdown) {
-  // 1. 先按双换行切分大块 (保留用户编辑时的块结构)
-  const rawChunks = markdown.split(/\n{2,}/);
+  const lines = markdown.split(/\r?\n/);
   const blocks = [];
   
-  let isLocking = false; 
-  let lockPassword = ''; 
-  let lockBuffer = [];
+  // 状态机变量
+  let state = 'NORMAL'; // 'NORMAL' | 'LOCK'
+  let buffer = []; // 暂存普通文本行
+  
+  let lockPwd = '';
+  let lockBuffer = []; // 暂存加密内容行
 
-  for (let chunk of rawChunks) {
-    const t = chunk.trim();
-    if (!t) continue;
-
-    // --- 加密块逻辑 ---
-    // 检查开头
-    if (!isLocking && t.startsWith(':::lock')) {
-       // 提取密码
-       const firstLineEnd = t.indexOf('\n');
-       const header = t.substring(0, firstLineEnd > -1 ? firstLineEnd : t.length);
-       lockPassword = header.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
-       
-       isLocking = true;
-       
-       // 如果这一块不仅仅是头，还有内容
-       let content = t;
-       if (firstLineEnd > -1) content = t.substring(firstLineEnd + 1);
-       else content = ""; // 只有头
-
-       // 检查是否在本块结束
-       if (content.endsWith(':::')) {
-           content = content.replace(/\n:::$/, '');
-           blocks.push({
-               object: 'block', type: 'callout',
-               callout: {
-                   rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }],
-                   icon: { type: "emoji", emoji: "🔒" }, color: "gray_background",
-                   children: [ { object: 'block', type: 'divider', divider: {} }, ...parseLinesToBlocks(content) ]
-               }
-           });
-           isLocking = false;
-           lockBuffer = [];
-       } else {
-           if(content) lockBuffer.push(content);
-       }
-       continue;
+  // 提交普通文本缓冲区
+  const flushNormalBuffer = () => {
+    if (buffer.length > 0) {
+      blocks.push(...parseContentToNotionChildren(buffer));
+      buffer = [];
     }
+  };
 
-    // 检查中间或结尾
-    if (isLocking) {
-        if (t.endsWith(':::')) {
-            lockBuffer.push(t.replace(/\n:::$/, ''));
-            blocks.push({
-               object: 'block', type: 'callout',
-               callout: {
-                   rich_text: [{ text: { content: `LOCK:${lockPassword}` }, annotations: { bold: true } }],
-                   icon: { type: "emoji", emoji: "🔒" }, color: "gray_background",
-                   children: [ { object: 'block', type: 'divider', divider: {} }, ...parseLinesToBlocks(lockBuffer.join('\n')) ]
-               }
-           });
-           isLocking = false;
-           lockBuffer = [];
-        } else {
-            lockBuffer.push(t);
-        }
-        continue;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (state === 'NORMAL') {
+      if (trimmed.startsWith(':::lock')) {
+        flushNormalBuffer(); // 先把之前的普通文本存了
+        state = 'LOCK';
+        lockPwd = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
+        // 这一行本身不存入 lockBuffer，只是开关
+      } else {
+        // 普通行，先存入 buffer，因为可能下一行也是文本，属于同一个“块”逻辑（虽然在 Notion 里是分开的）
+        buffer.push(line);
+      }
+    } else if (state === 'LOCK') {
+      if (trimmed === ':::') {
+        // 加密块结束
+        state = 'NORMAL';
+        blocks.push({ 
+          object: 'block', type: 'callout', 
+          callout: { 
+            rich_text: [{ text: { content: `LOCK:${lockPwd}` }, annotations: { bold: true } }], 
+            icon: { type: "emoji", emoji: "🔒" }, color: "gray_background", 
+            children: [ 
+                { object: 'block', type: 'divider', divider: {} }, 
+                ...parseContentToNotionChildren(lockBuffer) 
+            ] 
+          } 
+        });
+        lockBuffer = [];
+        lockPwd = '';
+      } else {
+        // 加密内容行（包括空行都要保留结构）
+        // 但为了避免开头就是空行，可以 trim 一下 buffer? 不，保持原样最好
+        lockBuffer.push(line);
+      }
     }
-
-    // --- 普通块逻辑 ---
-    // 🟢 关键修复：调用 parseLinesToBlocks 逐行处理，防止丢数据
-    blocks.push(...parseLinesToBlocks(t));
   }
+  // 循环结束，如果有残留的普通文本
+  flushNormalBuffer();
+
   return blocks;
 }
 
@@ -134,8 +132,9 @@ export async function GET(request) {
         const pwd = b.parent.match(/LOCK:([a-zA-Z0-9]+)/)?.[1] || '123';
         const parts = b.parent.split('---');
         let body = parts.length > 1 ? parts.slice(1).join('---') : parts[0].replace(/LOCK:.*\n?/, '');
+        // 清洗引用符，但保留内部换行结构
         body = body.replace(/^>[ \t]*/gm, '').trim(); 
-        b.parent = `:::lock ${pwd}\n\n${body}\n\n:::`;
+        b.parent = `:::lock ${pwd}\n${body}\n:::`;
       }
     });
 
