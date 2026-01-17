@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
-// Icons
 const Icons = {
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
@@ -57,28 +56,28 @@ const GlobalStyle = () => (
     .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
     .nav-item.active { color: #000; font-weight: bold; }
     
-    /* 🟢 积木与拖拽 */
+    /* 🟢 积木与拖拽优化 */
     .block-card { 
       background: #2a2a2e; border: 1px solid #333; border-radius: 10px; 
       padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; 
-      transition: border 0.2s; 
+      transition: transform 0.2s; 
+      cursor: default; 
     }
     .block-card:hover { border-color: greenyellow; }
-    /* 拖拽时的样式 */
-    .block-card.dragging { opacity: 0.4; border: 2px dashed greenyellow; }
+    /* 拖拽态样式 */
+    .block-card.dragging { opacity: 0.2; border: 2px dashed greenyellow; }
     
-    /* 手柄样式：位于左侧 */
+    /* 拖拽手柄 */
     .block-drag-handle { 
         position: absolute; left: 0; top: 0; bottom: 0; width: 45px; 
         display: flex; align-items: center; justify-content: center;
-        cursor: grab; color: #666; transition: 0.2s; z-index: 20; 
+        cursor: grab; color: #666; transition: 0.2s; z-index: 20;
         border-right: 1px solid transparent;
     }
     .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); border-right: 1px solid #333; }
     .block-drag-handle:active { cursor: grabbing; }
 
-    /* 🟢 绿线指示器 */
-    .drop-indicator { height: 4px; background: greenyellow; margin: 8px 0; border-radius: 2px; box-shadow: 0 0 10px greenyellow; animation: fadeIn 0.15s ease-out; }
+    .drop-indicator { height: 4px; background: greenyellow; margin: 4px 0; border-radius: 2px; box-shadow: 0 0 10px greenyellow; animation: fadeIn 0.15s ease-out; }
     @keyframes fadeIn { from { opacity: 0; transform: scaleX(0.8); } to { opacity: 1; transform: scaleX(1); } }
 
     .block-del { position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: #ff4d4f; border-radius: 0 10px 10px 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; cursor: pointer; color: white; }
@@ -138,26 +137,34 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
-// 🟢 拖拽修复版 BlockBuilder
+// 🟢 拖拽逻辑轻度优化
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
-  const [draggableId, setDraggableId] = useState(null); // 🟢 悬停激活机制
 
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
   const handleDragStart = (e, index) => {
+    if (!e.target.closest('.block-drag-handle')) { e.preventDefault(); return; }
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = "move";
   };
 
   const handleDragOver = (e, index) => {
     e.preventDefault();
-    if (e.clientY < 150) window.scrollBy({ top: -10, behavior: 'smooth' });
-    if (e.clientY > window.innerHeight - 150) window.scrollBy({ top: 10, behavior: 'smooth' });
+    // 自动滚动
+    if (e.clientY < 150) window.scrollBy(0, -10);
+    if (e.clientY > window.innerHeight - 150) window.scrollBy(0, 10);
+    
+    // 🟢 只有当索引变化时才更新，防止闪烁
     if (dragOverIndex !== index) setDragOverIndex(index);
+  };
+
+  const handleDragEnd = () => {
+     setDraggedIndex(null);
+     setDragOverIndex(null);
   };
 
   const handleDrop = () => {
@@ -166,9 +173,7 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
     const item = newBlocks.splice(draggedIndex, 1)[0];
     newBlocks.splice(dragOverIndex, 0, item);
     setBlocks(newBlocks);
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-    setDraggableId(null); // 重置状态
+    handleDragEnd(); // 🟢 强制重置
   };
 
   return (
@@ -183,53 +188,37 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
       </div>
 
       <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
-        {blocks.map((b, index) => {
-           // 🟢 智能绿线逻辑
-           const isDraggingDown = draggedIndex !== null && draggedIndex < index;
-           const isDraggingUp = draggedIndex !== null && draggedIndex > index;
-           const isOver = dragOverIndex === index;
-
-           return (
-            <React.Fragment key={b.id}>
-              {/* 上方绿线 (向上拖时) */}
-              {isOver && isDraggingUp && <div className="drop-indicator" />}
+        {blocks.map((b, index) => (
+          <React.Fragment key={b.id}>
+            {/* 🟢 上方指示线 */}
+            {dragOverIndex === index && draggedIndex !== index && <div className="drop-indicator" />}
+            
+            <div 
+              className={`block-card ${draggedIndex === index ? 'dragging' : ''}`}
+              draggable="true" 
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragEnd={handleDragEnd} // 🟢 增加 End 事件兜底
+              onDrop={handleDrop}
+            >
+              <div className="block-drag-handle"><Icons.DragHandle /></div>
+              <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
               
-              <div 
-                className={`block-card ${draggedIndex === index ? 'dragging' : ''}`}
-                // 🟢 悬停手柄时才允许拖拽
-                draggable={draggableId === b.id}
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDrop={handleDrop}
-              >
-                {/* 🟢 手柄事件：控制父级 draggable */}
-                <div 
-                   className="block-drag-handle"
-                   onMouseEnter={() => setDraggableId(b.id)}
-                   onMouseLeave={() => setDraggableId(null)}
-                >
-                   <Icons.DragHandle />
-                </div>
-                
-                <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
-                {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
-                {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，直接粘贴多行链接..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
-                {b.type === 'lock' && (
-                   <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
-                     <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
-                     <textarea className="glow-input" placeholder="输入被加密内容..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px', border:'1px dashed #555'}} />
-                   </div>
-                )}
-                <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
-              </div>
-              
-              {/* 下方绿线 (向下拖时) */}
-              {isOver && isDraggingDown && <div className="drop-indicator" />}
-              {/* 特殊处理：拖到最后一个元素的下方 */}
-              {isOver && index === blocks.length - 1 && draggedIndex !== index && !isDraggingUp && <div className="drop-indicator" />}
-            </React.Fragment>
-          );
-        })}
+              {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
+              {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，直接粘贴多行链接..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
+              {b.type === 'lock' && (
+                 <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
+                   <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
+                   <textarea className="glow-input" placeholder="输入被加密内容..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px', border:'1px dashed #555'}} />
+                 </div>
+              )}
+              <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
+            </div>
+            
+            {/* 🟢 下方指示线 (仅当拖到最后一个时) */}
+            {dragOverIndex === index && index === blocks.length - 1 && draggedIndex !== index && <div className="drop-indicator" />}
+          </React.Fragment>
+        ))}
         {blocks.length === 0 && <div style={{textAlign:'center', color:'#666', padding:'40px', border:'2px dashed #444', borderRadius:'12px'}}>👋 暂无内容，请点击上方按钮添加模块</div>}
       </div>
     </div>
@@ -253,7 +242,7 @@ const NotionView = ({ blocks }) => (
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
-  const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null), [rawLinks, setRawLinks] = useState(''), [mdLinks, setMdLinks] = useState('');
+  const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null);
   
   const [navIdx, setNavIdx] = useState(0); 
   const [expandedStep, setExpandedStep] = useState(1);
@@ -267,7 +256,7 @@ export default function Home() {
 
   const handleNavClick = (idx) => { setNavIdx(idx); const modes = ['folder','covered','text','gallery']; setViewMode(modes[idx]); setSelectedFolder(null); };
 
-  // 🟢 保存：应用清洗，使用双换行连接块
+  // 保存逻辑
   useEffect(() => {
     if(view !== 'edit') return;
     const newContent = editorBlocks.map(b => {
@@ -280,60 +269,71 @@ export default function Home() {
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 加载：使用双换行解析块
+  // 加载逻辑
   const parseContentToBlocks = (md) => {
     if(!md) return [];
     const rawChunks = md.split(/\n{2,}/);
     const res = [];
-    
     const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
 
-    // 缝合加密块
-    let mergedChunks = [];
-    let buffer = "";
-    let isLocking = false;
+    // 智能合并
+    let textBuffer = [];
+    const flushText = () => {
+      if (textBuffer.length > 0) {
+        res.push({ id: Date.now() + Math.random(), type: 'text', content: textBuffer.join('\n') });
+        textBuffer = [];
+      }
+    };
 
-    for (let chunk of rawChunks) {
-        let t = chunk.trim();
-        if(!t) continue;
-        if(!isLocking && t.startsWith(':::lock')) {
-            if(t.endsWith(':::')) mergedChunks.push(t);
-            else { isLocking = true; buffer = t; }
-        } else if(isLocking) {
-            buffer += "\n\n" + t;
-            if(t.endsWith(':::')) { isLocking = false; mergedChunks.push(buffer); buffer = ""; }
-        } else {
-            mergedChunks.push(t);
-        }
-    }
-    if(buffer) mergedChunks.push(buffer);
-
-    for(let block of mergedChunks) {
-      if(block.startsWith(':::lock')) { 
-        const pwd = block.match(/:::lock\s+(.*?)\n/)?.[1] || '123';
-        const content = block.replace(/^:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
+    for(let rawBlock of rawChunks) {
+      let t = rawBlock.trim();
+      if(!t) continue;
+      if(t.startsWith(':::lock')) { 
+        flushText();
+        const pwd = t.match(/:::lock\s+(.*?)\n/)?.[1] || '123';
+        const content = t.replace(/:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
         const strippedContent = content.split('\n').map(stripMd).join('\n');
         res.push({ id: Date.now() + Math.random(), type: 'lock', pwd, content: strippedContent });
         continue;
       }
+      if(t.startsWith('# ')) { flushText(); res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); continue; }
       
-      if(block.startsWith('# ')) { 
-        res.push({ id: Date.now() + Math.random(), type: 'h1', content: block.replace('# ','') }); 
-        continue; 
-      }
-      
-      const strippedContent = block.split('\n').map(stripMd).join('\n');
-      res.push({ id: Date.now() + Math.random(), type: 'text', content: strippedContent });
+      const strippedContent = t.split('\n').map(stripMd).join('\n');
+      textBuffer.push(strippedContent);
     }
+    flushText();
     return res;
   };
 
   const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
   const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setEditorBlocks(parseContentToBlocks(d.data.content)); setCurrentId(p.id); setView('edit'); setExpandedStep(1); } }).finally(()=>setLoading(false)); };
-  const handleCreate = () => { setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: activeTab, date: new Date().toISOString().split('T')[0] }); setEditorBlocks([]); setCurrentId(null); setView('edit'); setExpandedStep(1); };
+  
+  // 🟢 修复：创建时强制为 Post 类型
+  const handleCreate = () => { setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: 'Post', date: new Date().toISOString().split('T')[0] }); setEditorBlocks([]); setCurrentId(null); setView('edit'); setExpandedStep(1); };
+  
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
-  const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
+  // 🟢 过滤与置顶逻辑
+  const getFilteredPosts = () => {
+     let list = posts.filter(p => {
+        if (activeTab === 'Page') return p.type === 'Page' && ['about', 'download'].includes(p.slug);
+        return p.type === activeTab;
+     });
+     
+     if (searchQuery) list = list.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
+     if (selectedFolder) list = list.filter(p => p.category === selectedFolder);
+
+     // 🟢 置顶逻辑
+     if (activeTab === 'Post') {
+        const sticky = list.find(p => p.slug === 'announcement');
+        const others = list.filter(p => p.slug !== 'announcement');
+        if (sticky) return [sticky, ...others];
+        return others;
+     }
+     return list;
+  };
+  const filtered = getFilteredPosts();
+  
   const displayTags = (options.tags && options.tags.length > 0) ? (showAllTags ? options.tags : options.tags.slice(0, 12)) : [];
 
   if (!mounted) return null;
@@ -354,8 +354,9 @@ export default function Home() {
 
         {view === 'list' ? (
           <main>
+            {/* 🟢 左上角 Tab 增加 Page */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
-               <div style={{background:'#424242', padding:'5px', borderRadius:'12px', display:'flex'}}>{['Post', 'Widget'].map(t => <button key={t} onClick={() => { setActiveTab(t); setSelectedFolder(null); }} style={activeTab === t ? {padding:'8px 20px', border:'none', background:'#555', color:'#fff', borderRadius:'10px', fontWeight:'bold', fontSize:'13px', cursor:'pointer'} : {padding:'8px 20px', border:'none', background:'none', color:'#888', borderRadius:'10px', fontWeight:'bold', fontSize:'13px', cursor:'pointer'}}>{t === 'Post' ? '已发布' : '组件'}</button>)}</div>
+               <div style={{background:'#424242', padding:'5px', borderRadius:'12px', display:'flex'}}>{['Post', 'Widget', 'Page'].map(t => <button key={t} onClick={() => { setActiveTab(t); setSelectedFolder(null); }} style={activeTab === t ? {padding:'8px 20px', border:'none', background:'#555', color:'#fff', borderRadius:'10px', fontWeight:'bold', fontSize:'13px', cursor:'pointer'} : {padding:'8px 20px', border:'none', background:'none', color:'#888', borderRadius:'10px', fontWeight:'bold', fontSize:'13px', cursor:'pointer'}}>{t === 'Page' ? '自定义页面' : t === 'Post' ? '已发布' : '组件'}</button>)}</div>
                <SlidingNav activeIdx={navIdx} onSelect={handleNavClick} />
             </div>
             
@@ -388,6 +389,22 @@ export default function Home() {
             <StepAccordion step={3} title="标签与封面" isOpen={expandedStep === 3} onToggle={()=>setExpandedStep(expandedStep===3?0:3)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'greenyellow', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
+            </StepAccordion>
+            
+            {/* 🟢 Step 4: 发布状态 */}
+            <StepAccordion step={4} title="发布状态" isOpen={expandedStep === 4} onToggle={()=>setExpandedStep(expandedStep===4?0:4)}>
+               <div style={{display:'flex', gap:'20px'}}>
+                  <button onClick={()=>setForm({...form, status:'Published'})} style={{flex:1, padding:'15px', borderRadius:'10px', background: form.status==='Published'?'greenyellow':'#333', color: form.status==='Published'?'#000':'#666', border:'1px solid #555', cursor:'pointer', fontWeight:'bold'}}>🚀 已发布 (Published)</button>
+                  <button onClick={()=>setForm({...form, status:'Draft'})} style={{flex:1, padding:'15px', borderRadius:'10px', background: form.status==='Draft'?'#ff4d4f':'#333', color: form.status==='Draft'?'#fff':'#666', border:'1px solid #555', cursor:'pointer', fontWeight:'bold'}}>📝 草稿 (Draft)</button>
+               </div>
+            </StepAccordion>
+
+            {/* 🟢 Step 5: 素材工具 (原 Step 4) */}
+            <StepAccordion step={5} title="素材工具 (纯链接提取)" isOpen={expandedStep === 5} onToggle={()=>setExpandedStep(expandedStep===5?0:5)}>
+               <div style={{background:'#303030', padding:'15px', borderRadius:'10px'}}>
+                  <div className="neo-btn" onClick={()=>window.open("https://x1file.top/home")} style={{width:'100%', textAlign:'center'}}>📂 打开 Cloudreve 网盘</div>
+                  <div style={{marginTop:'10px', fontSize:'12px', color:'#666', textAlign:'center'}}>* 提示：在下方正文编辑区粘贴直链（支持多行），系统将在保存时自动完成清洗和格式转换。</div>
+               </div>
             </StepAccordion>
 
             <BlockBuilder blocks={editorBlocks} setBlocks={setEditorBlocks} />
