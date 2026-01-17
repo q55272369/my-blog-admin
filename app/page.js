@@ -58,10 +58,15 @@ const GlobalStyle = () => (
     
     .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; transition: border 0.2s, transform 0.2s; cursor: default; }
     .block-card:hover { border-color: greenyellow; }
-    .block-card.dragging { opacity: 0.3; background: #1a1a1d; border: 1px dashed greenyellow; }
+    .block-card.dragging { opacity: 0.3; background: #1a1a1d; border: 2px dashed greenyellow; }
     
-    /* 🟢 拖拽手柄修复：cursor: grab */
-    .block-drag-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 45px; display: flex; align-items: center; justify-content: center; cursor: grab; color: #666; transition: 0.2s; z-index: 20; border-right: 1px solid transparent; }
+    /* 🟢 拖拽手柄 */
+    .block-drag-handle { 
+        position: absolute; left: 0; top: 0; bottom: 0; width: 45px; 
+        display: flex; align-items: center; justify-content: center;
+        cursor: grab; color: #666; transition: 0.2s; z-index: 20;
+        border-right: 1px solid transparent;
+    }
     .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); border-right: 1px solid #333; }
     .block-drag-handle:active { cursor: grabbing; }
 
@@ -95,7 +100,6 @@ const GlobalStyle = () => (
     ::-webkit-scrollbar-thumb:hover { background: #555; }
   `}} />
 );
-// 全屏加载
 const FullScreenLoader = () => (<div className="loader-overlay"><div className="loader"><svg viewBox="0 0 200 60" width="200" height="60"><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M20,50 L20,10 L50,10 C65,10 65,30 50,30 L20,30" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M80,50 L80,10 L110,10 C125,10 125,30 110,30 L80,30 M100,30 L120,50" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M140,30 A20,20 0 1,0 180,30 A20,20 0 1,0 140,30" /></svg></div><div className="loader-text">SYSTEM PROCESSING</div></div>);
 
 const AnimatedBtn = ({ text, onClick, style }) => (<button className="animated-button" onClick={onClick} style={style}><svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg><span className="text">{text}</span><span className="circle"></span><svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg></button>);
@@ -126,69 +130,49 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
-// 🟢 BlockBuilder：终极拖拽修复
+// 🟢 BlockBuilder：拖拽完全修复版 (使用 isHandleActive)
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  // 🟢 手柄锁状态
+  const isHandleActive = useRef(false);
 
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
   const handleDragStart = (e, index) => {
-    if (!e.target.closest('.block-drag-handle')) {
+    // 🟢 关键：只有当 isHandleActive 为 true 时才允许开始拖动
+    if (!isHandleActive.current) {
       e.preventDefault();
       return;
     }
     setDraggedIndex(index);
-    // 设置拖拽模式为移动
     e.dataTransfer.effectAllowed = "move";
-    // 隐藏默认的半透明拖拽图，使用自定义样式（或者保持默认，取决于喜好，这里保持默认以免太复杂）
   };
 
   const handleDragOver = (e, index) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    if (e.clientY < 150) window.scrollBy(0, -10);
+    if (e.clientY > window.innerHeight - 150) window.scrollBy(0, 10);
+    if (dragOverIndex !== index) setDragOverIndex(index);
+  };
 
-    // 自动滚动
-    if (e.clientY < 150) window.scrollBy({ top: -10, behavior: 'smooth' });
-    if (e.clientY > window.innerHeight - 150) window.scrollBy({ top: 10, behavior: 'smooth' });
-
-    // 🟢 关键修复：防止自我干扰
-    if (index === draggedIndex) return;
-
-    // 🟢 关键修复：向下拖拽时，目标索引修正
-    // 只有当真正跨越了元素边界时才更新，防止闪烁
-    if (dragOverIndex !== index) {
-        setDragOverIndex(index);
-    }
+  const handleDrop = () => {
+    if (draggedIndex === null || dragOverIndex === null) return;
+    const newBlocks = [...blocks];
+    const item = newBlocks.splice(draggedIndex, 1)[0];
+    newBlocks.splice(dragOverIndex, 0, item);
+    setBlocks(newBlocks);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    isHandleActive.current = false;
   };
 
   const handleDragEnd = () => {
     setDraggedIndex(null);
     setDragOverIndex(null);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    if (draggedIndex === null || dragOverIndex === null) {
-        handleDragEnd();
-        return;
-    }
-    
-    const newBlocks = [...blocks];
-    const item = newBlocks.splice(draggedIndex, 1)[0];
-    
-    // 🟢 关键修复：如果从上往下拖，删除原来的元素后，所有后续元素的索引都减1了
-    // 所以如果 dragOverIndex > draggedIndex，说明我们插入的位置也前移了，需要修正吗？
-    // splice 会自动处理数组长度变化，我们只需要确保插入位置符合视觉预期。
-    // 在 React 列表中，直接插入到 dragOverIndex 即可，因为在 map 渲染时会自动重排。
-    
-    newBlocks.splice(dragOverIndex, 0, item);
-    setBlocks(newBlocks);
-    
-    // 🟢 强制重置状态，防止变灰
-    handleDragEnd();
+    isHandleActive.current = false;
   };
 
   return (
@@ -205,7 +189,6 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
       <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
         {blocks.map((b, index) => (
           <React.Fragment key={b.id}>
-            {/* 🟢 绿线逻辑简化：只在目标上方显示，且不显示在自己上方 */}
             {dragOverIndex === index && draggedIndex !== index && <div className="drop-indicator" />}
             
             <div 
@@ -216,7 +199,16 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
               onDragEnd={handleDragEnd}
               onDrop={handleDrop}
             >
-              <div className="block-drag-handle"><Icons.DragHandle /></div>
+              {/* 🟢 修复手柄：绑定鼠标按下事件 */}
+              <div 
+                className="block-drag-handle"
+                onMouseDown={() => isHandleActive.current = true}
+                onMouseUp={() => isHandleActive.current = false}
+                onMouseLeave={() => isHandleActive.current = false}
+              >
+                <Icons.DragHandle />
+              </div>
+              
               <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
               
               {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
@@ -230,32 +222,10 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
               <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
             </div>
             
-            {/* 🟢 底部绿线：仅当拖到最后一个元素的下方时显示 */}
-            {dragOverIndex === index && index === blocks.length - 1 && draggedIndex !== index && (
-                // 这里加一个空位检测，如果是往下拖到末尾
-                <div style={{height:'10px'}} />
-            )}
+            {dragOverIndex === index && index === blocks.length - 1 && draggedIndex !== index && <div className="drop-indicator" />}
           </React.Fragment>
         ))}
-        
-        {/* 🟢 最后的 Drop 区域：允许把块拖到列表最底部 */}
-        <div 
-            style={{height: '40px', border: dragOverIndex === blocks.length ? '2px dashed greenyellow' : 'none', transition: '0.2s'}}
-            onDragOver={(e) => {
-                e.preventDefault();
-                setDragOverIndex(blocks.length);
-            }}
-            onDrop={() => {
-                if (draggedIndex === null) return;
-                const newBlocks = [...blocks];
-                const item = newBlocks.splice(draggedIndex, 1)[0];
-                newBlocks.push(item);
-                setBlocks(newBlocks);
-                handleDragEnd();
-            }}
-        >
-             {blocks.length === 0 && <div style={{textAlign:'center', color:'#666', padding:'20px'}}>👋 暂无内容，请点击上方按钮添加模块</div>}
-        </div>
+        {blocks.length === 0 && <div style={{textAlign:'center', color:'#666', padding:'40px', border:'2px dashed #444', borderRadius:'12px'}}>👋 暂无内容，请点击上方按钮添加模块</div>}
       </div>
     </div>
   );
@@ -305,52 +275,100 @@ export default function Home() {
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 加载逻辑
+  // 🟢 核心修复：状态机解析 (逐行读取，完美复原加密块)
   const parseContentToBlocks = (md) => {
     if(!md) return [];
-    const rawChunks = md.split(/\n{2,}/);
+    
+    // 按行读取
+    const lines = md.split(/\r?\n/);
     const res = [];
-    const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
-    let textBuffer = [];
-    const flushText = () => { if (textBuffer.length > 0) { res.push({ id: Date.now() + Math.random(), type: 'text', content: textBuffer.join('\n') }); textBuffer = []; } };
+    
+    let buffer = [];      // 缓存普通文本行
+    let isLocking = false;
+    let lockPwd = '123';
+    let lockBuffer = [];  // 缓存加密内容行
 
-    for(let rawBlock of rawChunks) {
-      let t = rawBlock.trim();
-      if(!t) continue;
-      if(t.startsWith(':::lock')) { 
-        flushText();
-        const pwd = t.match(/:::lock\s+(.*?)\n/)?.[1] || '123';
-        const content = t.replace(/:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
-        const strippedContent = content.split('\n').map(stripMd).join('\n');
-        res.push({ id: Date.now() + Math.random(), type: 'lock', pwd, content: strippedContent });
+    const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
+
+    // 提交普通文本
+    const flushBuffer = () => {
+      if (buffer.length > 0) {
+        // 合并连续文本，去除首尾空行
+        const joined = buffer.map(stripMd).join('\n').trim();
+        if (joined) {
+           res.push({ id: Date.now() + Math.random(), type: 'text', content: joined });
+        }
+        buffer = [];
+      }
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      // 1. 加密块开始
+      if (!isLocking && trimmed.startsWith(':::lock')) {
+        flushBuffer(); // 先提交之前的文本
+        isLocking = true;
+        lockPwd = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
         continue;
       }
-      if(t.startsWith('# ')) { flushText(); res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); continue; }
-      
-      const strippedContent = t.split('\n').map(stripMd).join('\n');
-      textBuffer.push(strippedContent);
+
+      // 2. 加密块结束
+      if (isLocking && trimmed === ':::') {
+        isLocking = false;
+        const joinedLock = lockBuffer.map(stripMd).join('\n').trim();
+        res.push({ id: Date.now() + Math.random(), type: 'lock', pwd: lockPwd, content: joinedLock });
+        lockBuffer = [];
+        continue;
+      }
+
+      // 3. 在加密块内部
+      if (isLocking) {
+        lockBuffer.push(line);
+        continue;
+      }
+
+      // 4. 标题 (独占一行，视为分块)
+      if (trimmed.startsWith('# ')) {
+        flushBuffer();
+        res.push({ id: Date.now() + Math.random(), type: 'h1', content: trimmed.replace('# ', '') });
+        continue;
+      }
+
+      // 5. 普通内容 (如果是空行，视为分块信号)
+      if (!trimmed) {
+         flushBuffer();
+         continue;
+      }
+
+      // 6. 累积普通文本
+      buffer.push(line);
     }
-    flushText();
+    
+    // 收尾
+    flushBuffer();
     return res;
   };
 
   const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
   const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setEditorBlocks(parseContentToBlocks(d.data.content)); setCurrentId(p.id); setView('edit'); setExpandedStep(1); } }).finally(()=>setLoading(false)); };
+  
+  // 🟢 修复：创建时强制 Post 类型
   const handleCreate = () => { setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: 'Post', date: new Date().toISOString().split('T')[0] }); setEditorBlocks([]); setCurrentId(null); setView('edit'); setExpandedStep(1); };
+  
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
-  // 🟢 过滤与置顶逻辑 (修复 Announcement 置顶)
+  // 过滤与置顶逻辑
   const getFilteredPosts = () => {
      let list = posts.filter(p => {
         if (activeTab === 'Page') return p.type === 'Page' && ['about', 'download'].includes(p.slug);
-        // Post 和 Widget 标签页逻辑
         return p.type === activeTab;
      });
      
      if (searchQuery) list = list.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
      if (selectedFolder) list = list.filter(p => p.category === selectedFolder);
 
-     // 🟢 置顶逻辑
      if (activeTab === 'Post') {
         const sticky = list.find(p => p.slug === 'announcement');
         const others = list.filter(p => p.slug !== 'announcement');
@@ -381,7 +399,6 @@ export default function Home() {
 
         {view === 'list' ? (
           <main>
-            {/* 🟢 左上角 Tab 增加 Page */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
                <div style={{background:'#424242', padding:'5px', borderRadius:'12px', display:'flex'}}>{['Post', 'Widget', 'Page'].map(t => <button key={t} onClick={() => { setActiveTab(t); setSelectedFolder(null); }} style={activeTab === t ? {padding:'8px 20px', border:'none', background:'#555', color:'#fff', borderRadius:'10px', fontWeight:'bold', fontSize:'13px', cursor:'pointer'} : {padding:'8px 20px', border:'none', background:'none', color:'#888', borderRadius:'10px', fontWeight:'bold', fontSize:'13px', cursor:'pointer'}}>{t === 'Page' ? '自定义页面' : t === 'Post' ? '已发布' : '组件'}</button>)}</div>
                <SlidingNav activeIdx={navIdx} onSelect={handleNavClick} />
@@ -401,11 +418,13 @@ export default function Home() {
           </main>
         ) : (
           <main style={{background:'#424242', padding:'30px', borderRadius:'20px', border:'1px solid #555'}}>
+            {/* 🟢 Step 1: 基础 + 摘要 */}
             <StepAccordion step={1} title="基础信息" isOpen={expandedStep === 1} onToggle={()=>setExpandedStep(expandedStep===1?0:1)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标题 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" value={form.title} onChange={e=>setForm({...form, title:e.target.value})} placeholder="输入文章标题..." /></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>摘要</label><input className="glow-input" value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} placeholder="输入文章摘要..." /></div>
             </StepAccordion>
 
+            {/* 🟢 Step 2: 分类 + 时间 */}
             <StepAccordion step={2} title="分类与时间" isOpen={expandedStep === 2} onToggle={()=>setExpandedStep(expandedStep===2?0:2)}>
                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px'}}>
                  <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>分类 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} placeholder="选择或输入分类" /><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
@@ -413,11 +432,12 @@ export default function Home() {
                </div>
             </StepAccordion>
 
+            {/* 🟢 Step 3: 标签 + 封面 */}
             <StepAccordion step={3} title="标签与封面" isOpen={expandedStep === 3} onToggle={()=>setExpandedStep(expandedStep===3?0:3)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'greenyellow', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
             </StepAccordion>
-
+            
             {/* 🟢 Step 4: 发布状态 */}
             <StepAccordion step={4} title="发布状态" isOpen={expandedStep === 4} onToggle={()=>setExpandedStep(expandedStep===4?0:4)}>
                <div style={{display:'flex', gap:'20px'}}>
