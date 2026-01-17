@@ -56,28 +56,16 @@ const GlobalStyle = () => (
     .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
     .nav-item.active { color: #000; font-weight: bold; }
     
-    /* 🟢 积木与拖拽优化 */
-    .block-card { 
-      background: #2a2a2e; border: 1px solid #333; border-radius: 10px; 
-      padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; 
-      transition: transform 0.2s; 
-      cursor: default; 
-    }
+    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; transition: border 0.2s, transform 0.2s; cursor: default; }
     .block-card:hover { border-color: greenyellow; }
-    /* 拖拽态样式 */
-    .block-card.dragging { opacity: 0.2; border: 2px dashed greenyellow; }
+    .block-card.dragging { opacity: 0.3; background: #1a1a1d; border: 1px dashed greenyellow; }
     
-    /* 拖拽手柄 */
-    .block-drag-handle { 
-        position: absolute; left: 0; top: 0; bottom: 0; width: 45px; 
-        display: flex; align-items: center; justify-content: center;
-        cursor: grab; color: #666; transition: 0.2s; z-index: 20;
-        border-right: 1px solid transparent;
-    }
+    /* 🟢 拖拽手柄修复：cursor: grab */
+    .block-drag-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 45px; display: flex; align-items: center; justify-content: center; cursor: grab; color: #666; transition: 0.2s; z-index: 20; border-right: 1px solid transparent; }
     .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); border-right: 1px solid #333; }
     .block-drag-handle:active { cursor: grabbing; }
 
-    .drop-indicator { height: 4px; background: greenyellow; margin: 4px 0; border-radius: 2px; box-shadow: 0 0 10px greenyellow; animation: fadeIn 0.15s ease-out; }
+    .drop-indicator { height: 4px; background: greenyellow; margin: 8px 0; border-radius: 2px; box-shadow: 0 0 10px greenyellow; animation: fadeIn 0.15s ease-out; }
     @keyframes fadeIn { from { opacity: 0; transform: scaleX(0.8); } to { opacity: 1; transform: scaleX(1); } }
 
     .block-del { position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: #ff4d4f; border-radius: 0 10px 10px 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; cursor: pointer; color: white; }
@@ -137,17 +125,24 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
-// 🟢 拖拽逻辑轻度优化
+// 🟢 修复拖拽核心
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  
+  // 🟢 使用 ref 来锁定拖拽意图，这是解决“拖拽卡顿/失效”最稳的方案
+  const isHandleActive = useRef(false);
 
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
   const handleDragStart = (e, index) => {
-    if (!e.target.closest('.block-drag-handle')) { e.preventDefault(); return; }
+    // 只有当手柄被按下时才允许拖动
+    if (!isHandleActive.current) {
+      e.preventDefault();
+      return;
+    }
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = "move";
   };
@@ -155,16 +150,10 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
   const handleDragOver = (e, index) => {
     e.preventDefault();
     // 自动滚动
-    if (e.clientY < 150) window.scrollBy(0, -10);
-    if (e.clientY > window.innerHeight - 150) window.scrollBy(0, 10);
+    if (e.clientY < 150) window.scrollBy({ top: -10, behavior: 'smooth' });
+    if (e.clientY > window.innerHeight - 150) window.scrollBy({ top: 10, behavior: 'smooth' });
     
-    // 🟢 只有当索引变化时才更新，防止闪烁
     if (dragOverIndex !== index) setDragOverIndex(index);
-  };
-
-  const handleDragEnd = () => {
-     setDraggedIndex(null);
-     setDragOverIndex(null);
   };
 
   const handleDrop = () => {
@@ -173,7 +162,9 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
     const item = newBlocks.splice(draggedIndex, 1)[0];
     newBlocks.splice(dragOverIndex, 0, item);
     setBlocks(newBlocks);
-    handleDragEnd(); // 🟢 强制重置
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    isHandleActive.current = false;
   };
 
   return (
@@ -190,7 +181,6 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
       <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
         {blocks.map((b, index) => (
           <React.Fragment key={b.id}>
-            {/* 🟢 上方指示线 */}
             {dragOverIndex === index && draggedIndex !== index && <div className="drop-indicator" />}
             
             <div 
@@ -198,10 +188,18 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
               draggable="true" 
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}
-              onDragEnd={handleDragEnd} // 🟢 增加 End 事件兜底
               onDrop={handleDrop}
             >
-              <div className="block-drag-handle"><Icons.DragHandle /></div>
+              {/* 🟢 修复手柄：绑定鼠标按下事件 */}
+              <div 
+                className="block-drag-handle"
+                onMouseDown={() => isHandleActive.current = true}
+                onMouseUp={() => isHandleActive.current = false}
+                onMouseLeave={() => isHandleActive.current = false}
+              >
+                <Icons.DragHandle />
+              </div>
+              
               <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
               
               {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
@@ -215,7 +213,6 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
               <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
             </div>
             
-            {/* 🟢 下方指示线 (仅当拖到最后一个时) */}
             {dragOverIndex === index && index === blocks.length - 1 && draggedIndex !== index && <div className="drop-indicator" />}
           </React.Fragment>
         ))}
@@ -275,15 +272,8 @@ export default function Home() {
     const rawChunks = md.split(/\n{2,}/);
     const res = [];
     const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
-
-    // 智能合并
     let textBuffer = [];
-    const flushText = () => {
-      if (textBuffer.length > 0) {
-        res.push({ id: Date.now() + Math.random(), type: 'text', content: textBuffer.join('\n') });
-        textBuffer = [];
-      }
-    };
+    const flushText = () => { if (textBuffer.length > 0) { res.push({ id: Date.now() + Math.random(), type: 'text', content: textBuffer.join('\n') }); textBuffer = []; } };
 
     for(let rawBlock of rawChunks) {
       let t = rawBlock.trim();
@@ -307,16 +297,14 @@ export default function Home() {
 
   const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
   const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setEditorBlocks(parseContentToBlocks(d.data.content)); setCurrentId(p.id); setView('edit'); setExpandedStep(1); } }).finally(()=>setLoading(false)); };
-  
-  // 🟢 修复：创建时强制为 Post 类型
   const handleCreate = () => { setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: 'Post', date: new Date().toISOString().split('T')[0] }); setEditorBlocks([]); setCurrentId(null); setView('edit'); setExpandedStep(1); };
-  
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
-  // 🟢 过滤与置顶逻辑
+  // 🟢 过滤与置顶逻辑 (修复 Announcement 置顶)
   const getFilteredPosts = () => {
      let list = posts.filter(p => {
         if (activeTab === 'Page') return p.type === 'Page' && ['about', 'download'].includes(p.slug);
+        // Post 和 Widget 标签页逻辑
         return p.type === activeTab;
      });
      
@@ -390,20 +378,12 @@ export default function Home() {
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'greenyellow', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
             </StepAccordion>
-            
+
             {/* 🟢 Step 4: 发布状态 */}
             <StepAccordion step={4} title="发布状态" isOpen={expandedStep === 4} onToggle={()=>setExpandedStep(expandedStep===4?0:4)}>
                <div style={{display:'flex', gap:'20px'}}>
-                  <button onClick={()=>setForm({...form, status:'Published'})} style={{flex:1, padding:'15px', borderRadius:'10px', background: form.status==='Published'?'greenyellow':'#333', color: form.status==='Published'?'#000':'#666', border:'1px solid #555', cursor:'pointer', fontWeight:'bold'}}>🚀 已发布 (Published)</button>
-                  <button onClick={()=>setForm({...form, status:'Draft'})} style={{flex:1, padding:'15px', borderRadius:'10px', background: form.status==='Draft'?'#ff4d4f':'#333', color: form.status==='Draft'?'#fff':'#666', border:'1px solid #555', cursor:'pointer', fontWeight:'bold'}}>📝 草稿 (Draft)</button>
-               </div>
-            </StepAccordion>
-
-            {/* 🟢 Step 5: 素材工具 (原 Step 4) */}
-            <StepAccordion step={5} title="素材工具 (纯链接提取)" isOpen={expandedStep === 5} onToggle={()=>setExpandedStep(expandedStep===5?0:5)}>
-               <div style={{background:'#303030', padding:'15px', borderRadius:'10px'}}>
-                  <div className="neo-btn" onClick={()=>window.open("https://x1file.top/home")} style={{width:'100%', textAlign:'center'}}>📂 打开 Cloudreve 网盘</div>
-                  <div style={{marginTop:'10px', fontSize:'12px', color:'#666', textAlign:'center'}}>* 提示：在下方正文编辑区粘贴直链（支持多行），系统将在保存时自动完成清洗和格式转换。</div>
+                  <button onClick={()=>setForm({...form, status:'Published'})} style={{flex:1, padding:'15px', borderRadius:'10px', background: form.status==='Published'?'greenyellow':'#333', color: form.status==='Published'?'#000':'#666', border:'1px solid #555', cursor:'pointer', fontWeight:'bold', transition:'0.2s'}}>🚀 已发布 (Published)</button>
+                  <button onClick={()=>setForm({...form, status:'Draft'})} style={{flex:1, padding:'15px', borderRadius:'10px', background: form.status==='Draft'?'#ff4d4f':'#333', color: form.status==='Draft'?'#fff':'#666', border:'1px solid #555', cursor:'pointer', fontWeight:'bold', transition:'0.2s'}}>📝 草稿 (Draft)</button>
                </div>
             </StepAccordion>
 
