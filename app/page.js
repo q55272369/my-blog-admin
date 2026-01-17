@@ -58,16 +58,23 @@ const GlobalStyle = () => (
     .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
     .nav-item.active { color: #000; font-weight: bold; }
     
-    /* 🟢 积木样式 (无拖拽，只有左侧控制栏) */
     .block-card { 
       background: #2a2a2e; border: 1px solid #333; border-radius: 10px; 
-      padding: 15px 15px 15px 55px; /* 左侧留出更多空间 */
-      margin-bottom: 12px; position: relative; 
+      padding: 15px 15px 15px 55px; margin-bottom: 12px; position: relative; 
       transition: border 0.2s; 
     }
     .block-card:hover { border-color: greenyellow; }
     
-    /* 🟢 左侧控制栏 (加大版) */
+    /* 🟢 移动动画：绿色呼吸闪烁 */
+    .block-card.just-moved {
+        animation: moveHighlight 0.6s ease-out;
+    }
+    @keyframes moveHighlight {
+        0% { box-shadow: 0 0 0 0 rgba(173, 255, 47, 0); border-color: #333; }
+        30% { box-shadow: 0 0 15px 2px rgba(173, 255, 47, 0.4); border-color: greenyellow; background: #2f2f33; }
+        100% { box-shadow: 0 0 0 0 rgba(173, 255, 47, 0); border-color: #333; background: #2a2a2e; }
+    }
+    
     .block-left-ctrl { 
         position: absolute; left: 0; top: 0; bottom: 0; width: 45px; 
         background: rgba(0,0,0,0.2);
@@ -78,7 +85,7 @@ const GlobalStyle = () => (
     }
     .move-btn { 
         cursor: pointer; color: #888; 
-        width: 30px; height: 30px; /* 加大触控区 */
+        width: 30px; height: 30px; 
         border-radius: 6px; transition: 0.2s; 
         display: flex; align-items: center; justify-content: center;
         background: rgba(255,255,255,0.05);
@@ -86,7 +93,6 @@ const GlobalStyle = () => (
     .move-btn:hover { background: greenyellow; color: #000; box-shadow: 0 0 10px greenyellow; }
     .move-btn:active { transform: scale(0.9); }
     
-    /* 🟢 块标签 (加大版) */
     .block-label {
         font-size: 12px; color: greenyellow; margin-bottom: 8px; 
         fontWeight: bold; text-transform: uppercase; letter-spacing: 1px;
@@ -149,27 +155,38 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
-// 🟢 BlockBuilder：按钮移动版 (无拖拽)
+// 🟢 BlockBuilder (带移位高亮动画)
 const BlockBuilder = ({ blocks, setBlocks }) => {
+  // 🟢 动画状态
+  const [movingId, setMovingId] = useState(null);
+
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   
-  // 🟢 秒删
   const removeBlock = (id) => { setBlocks(blocks.filter(b => b.id !== id)); };
 
-  // 🟢 核心：移动逻辑
+  // 🟢 移动逻辑 + 动画触发
   const moveBlock = (index, direction) => {
-    // direction: -1 (up), 1 (down)
     if (direction === -1 && index === 0) return;
     if (direction === 1 && index === blocks.length - 1) return;
 
     const newBlocks = [...blocks];
     const targetIndex = index + direction;
-    [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
+    // 交换
+    const temp = newBlocks[index];
+    newBlocks[index] = newBlocks[targetIndex];
+    newBlocks[targetIndex] = temp;
+    
     setBlocks(newBlocks);
+    
+    // 触发动画 (给目标块一个 ID)
+    const targetId = temp.id;
+    setMovingId(targetId);
+    
+    // 0.6秒后清除动画状态
+    setTimeout(() => setMovingId(null), 600);
   };
 
-  // 🟢 中文标签
   const getBlockLabel = (type) => {
       if (type === 'h1') return 'H1 标题';
       if (type === 'lock') return '🔒 加密内容';
@@ -189,14 +206,16 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
 
       <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
         {blocks.map((b, index) => (
-          <div key={b.id} className="block-card">
-            {/* 🟢 左侧控制栏 */}
+          <div 
+            key={b.id} 
+            className={`block-card ${movingId === b.id ? 'just-moved' : ''}`} // 🟢 应用动画类
+          >
+            {/* 左侧控制栏 */}
             <div className="block-left-ctrl">
                <div className="move-btn" onClick={() => moveBlock(index, -1)}><Icons.ArrowUp /></div>
                <div className="move-btn" onClick={() => moveBlock(index, 1)}><Icons.ArrowDown /></div>
             </div>
             
-            {/* 🟢 标签 */}
             <div className="block-label">{getBlockLabel(b.type)}</div>
             
             {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
@@ -235,7 +254,8 @@ export default function Home() {
   const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
   const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null);
   
-  const [navIdx, setNavIdx] = useState(0); 
+  // 🟢 修复：默认 navIdx = 1 (CoverMode)
+  const [navIdx, setNavIdx] = useState(1); 
   const [expandedStep, setExpandedStep] = useState(1);
   const [editorBlocks, setEditorBlocks] = useState([]);
 
@@ -260,22 +280,19 @@ export default function Home() {
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 核心修复：状态机解析 (修复加密块被拆分)
+  // 加载逻辑
   const parseContentToBlocks = (md) => {
     if(!md) return [];
-    
-    // 按行处理
     const lines = md.split(/\r?\n/);
     const res = [];
     
-    let buffer = [];      // 缓存普通文本行
+    let buffer = [];      
     let isLocking = false;
     let lockPwd = '123';
-    let lockBuffer = [];  // 缓存加密内容行
+    let lockBuffer = [];  
 
     const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
 
-    // 提交普通文本
     const flushBuffer = () => {
       if (buffer.length > 0) {
         const joined = buffer.map(stripMd).join('\n').trim();
@@ -290,48 +307,39 @@ export default function Home() {
       const line = lines[i];
       const trimmed = line.trim();
 
-      // 1. 加密块开始
       if (!isLocking && trimmed.startsWith(':::lock')) {
-        flushBuffer(); // 先提交之前的文本
+        flushBuffer();
         isLocking = true;
         lockPwd = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
         continue;
       }
 
-      // 2. 加密块结束
       if (isLocking && trimmed === ':::') {
         isLocking = false;
-        // 加密块内容不丢弃任何行，保持原样
         const joinedLock = lockBuffer.map(stripMd).join('\n').trim();
         res.push({ id: Date.now() + Math.random(), type: 'lock', pwd: lockPwd, content: joinedLock });
         lockBuffer = [];
         continue;
       }
 
-      // 3. 在加密块内部 (哪怕是空行也要收集，绝不切断)
       if (isLocking) {
         lockBuffer.push(line);
         continue;
       }
 
-      // 4. 标题 (独占一行)
       if (trimmed.startsWith('# ')) {
         flushBuffer();
         res.push({ id: Date.now() + Math.random(), type: 'h1', content: trimmed.replace('# ', '') });
         continue;
       }
 
-      // 5. 普通内容 (空行视为分块)
       if (!trimmed) {
          flushBuffer();
          continue;
       }
 
-      // 6. 累积普通文本
       buffer.push(line);
     }
-    
-    // 收尾
     flushBuffer();
     return res;
   };
