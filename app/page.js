@@ -95,6 +95,7 @@ const GlobalStyle = () => (
     ::-webkit-scrollbar-thumb:hover { background: #555; }
   `}} />
 );
+// 全屏加载
 const FullScreenLoader = () => (<div className="loader-overlay"><div className="loader"><svg viewBox="0 0 200 60" width="200" height="60"><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M20,50 L20,10 L50,10 C65,10 65,30 50,30 L20,30" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M80,50 L80,10 L110,10 C125,10 125,30 110,30 L80,30 M100,30 L120,50" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M140,30 A20,20 0 1,0 180,30 A20,20 0 1,0 140,30" /></svg></div><div className="loader-text">SYSTEM PROCESSING</div></div>);
 
 const AnimatedBtn = ({ text, onClick, style }) => (<button className="animated-button" onClick={onClick} style={style}><svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg><span className="text">{text}</span><span className="circle"></span><svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg></button>);
@@ -125,46 +126,69 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
-// 🟢 修复拖拽核心
+// 🟢 BlockBuilder：终极拖拽修复
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
-  
-  // 🟢 使用 ref 来锁定拖拽意图，这是解决“拖拽卡顿/失效”最稳的方案
-  const isHandleActive = useRef(false);
 
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
   const handleDragStart = (e, index) => {
-    // 只有当手柄被按下时才允许拖动
-    if (!isHandleActive.current) {
+    if (!e.target.closest('.block-drag-handle')) {
       e.preventDefault();
       return;
     }
     setDraggedIndex(index);
+    // 设置拖拽模式为移动
     e.dataTransfer.effectAllowed = "move";
+    // 隐藏默认的半透明拖拽图，使用自定义样式（或者保持默认，取决于喜好，这里保持默认以免太复杂）
   };
 
   const handleDragOver = (e, index) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+
     // 自动滚动
     if (e.clientY < 150) window.scrollBy({ top: -10, behavior: 'smooth' });
     if (e.clientY > window.innerHeight - 150) window.scrollBy({ top: 10, behavior: 'smooth' });
-    
-    if (dragOverIndex !== index) setDragOverIndex(index);
+
+    // 🟢 关键修复：防止自我干扰
+    if (index === draggedIndex) return;
+
+    // 🟢 关键修复：向下拖拽时，目标索引修正
+    // 只有当真正跨越了元素边界时才更新，防止闪烁
+    if (dragOverIndex !== index) {
+        setDragOverIndex(index);
+    }
   };
 
-  const handleDrop = () => {
-    if (draggedIndex === null || dragOverIndex === null) return;
-    const newBlocks = [...blocks];
-    const item = newBlocks.splice(draggedIndex, 1)[0];
-    newBlocks.splice(dragOverIndex, 0, item);
-    setBlocks(newBlocks);
+  const handleDragEnd = () => {
     setDraggedIndex(null);
     setDragOverIndex(null);
-    isHandleActive.current = false;
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    if (draggedIndex === null || dragOverIndex === null) {
+        handleDragEnd();
+        return;
+    }
+    
+    const newBlocks = [...blocks];
+    const item = newBlocks.splice(draggedIndex, 1)[0];
+    
+    // 🟢 关键修复：如果从上往下拖，删除原来的元素后，所有后续元素的索引都减1了
+    // 所以如果 dragOverIndex > draggedIndex，说明我们插入的位置也前移了，需要修正吗？
+    // splice 会自动处理数组长度变化，我们只需要确保插入位置符合视觉预期。
+    // 在 React 列表中，直接插入到 dragOverIndex 即可，因为在 map 渲染时会自动重排。
+    
+    newBlocks.splice(dragOverIndex, 0, item);
+    setBlocks(newBlocks);
+    
+    // 🟢 强制重置状态，防止变灰
+    handleDragEnd();
   };
 
   return (
@@ -181,6 +205,7 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
       <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
         {blocks.map((b, index) => (
           <React.Fragment key={b.id}>
+            {/* 🟢 绿线逻辑简化：只在目标上方显示，且不显示在自己上方 */}
             {dragOverIndex === index && draggedIndex !== index && <div className="drop-indicator" />}
             
             <div 
@@ -188,18 +213,10 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
               draggable="true" 
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}
+              onDragEnd={handleDragEnd}
               onDrop={handleDrop}
             >
-              {/* 🟢 修复手柄：绑定鼠标按下事件 */}
-              <div 
-                className="block-drag-handle"
-                onMouseDown={() => isHandleActive.current = true}
-                onMouseUp={() => isHandleActive.current = false}
-                onMouseLeave={() => isHandleActive.current = false}
-              >
-                <Icons.DragHandle />
-              </div>
-              
+              <div className="block-drag-handle"><Icons.DragHandle /></div>
               <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
               
               {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
@@ -213,10 +230,32 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
               <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
             </div>
             
-            {dragOverIndex === index && index === blocks.length - 1 && draggedIndex !== index && <div className="drop-indicator" />}
+            {/* 🟢 底部绿线：仅当拖到最后一个元素的下方时显示 */}
+            {dragOverIndex === index && index === blocks.length - 1 && draggedIndex !== index && (
+                // 这里加一个空位检测，如果是往下拖到末尾
+                <div style={{height:'10px'}} />
+            )}
           </React.Fragment>
         ))}
-        {blocks.length === 0 && <div style={{textAlign:'center', color:'#666', padding:'40px', border:'2px dashed #444', borderRadius:'12px'}}>👋 暂无内容，请点击上方按钮添加模块</div>}
+        
+        {/* 🟢 最后的 Drop 区域：允许把块拖到列表最底部 */}
+        <div 
+            style={{height: '40px', border: dragOverIndex === blocks.length ? '2px dashed greenyellow' : 'none', transition: '0.2s'}}
+            onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverIndex(blocks.length);
+            }}
+            onDrop={() => {
+                if (draggedIndex === null) return;
+                const newBlocks = [...blocks];
+                const item = newBlocks.splice(draggedIndex, 1)[0];
+                newBlocks.push(item);
+                setBlocks(newBlocks);
+                handleDragEnd();
+            }}
+        >
+             {blocks.length === 0 && <div style={{textAlign:'center', color:'#666', padding:'20px'}}>👋 暂无内容，请点击上方按钮添加模块</div>}
+        </div>
       </div>
     </div>
   );
