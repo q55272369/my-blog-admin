@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
+// --- 1. 图标库 (新增 ArrowUp/Down) ---
 const Icons = {
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
@@ -12,8 +13,9 @@ const Icons = {
   Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
   Tutorial: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
   ChevronDown: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>,
-  DragHandle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><circle cx="4" cy="6" r="2"></circle><circle cx="4" cy="12" r="2"></circle><circle cx="4" cy="18" r="2"></circle></svg>,
-  Cloud: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
+  Cloud: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>,
+  ArrowUp: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg>,
+  ArrowDown: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="6 9 12 15 18 9"></polyline></svg>
 };
 
 const GlobalStyle = () => (
@@ -56,22 +58,30 @@ const GlobalStyle = () => (
     .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
     .nav-item.active { color: #000; font-weight: bold; }
     
-    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; transition: border 0.2s, transform 0.2s; cursor: default; }
-    .block-card:hover { border-color: greenyellow; }
-    .block-card.dragging { opacity: 0.3; background: #1a1a1d; border: 2px dashed greenyellow; }
-    
-    /* 🟢 拖拽手柄 */
-    .block-drag-handle { 
-        position: absolute; left: 0; top: 0; bottom: 0; width: 45px; 
-        display: flex; align-items: center; justify-content: center;
-        cursor: grab; color: #666; transition: 0.2s; z-index: 20;
-        border-right: 1px solid transparent;
+    /* 🟢 积木样式 (无拖拽，只有左侧控制栏) */
+    .block-card { 
+      background: #2a2a2e; border: 1px solid #333; border-radius: 10px; 
+      padding: 15px 15px 15px 50px; /* 左侧留出控制栏空间 */
+      margin-bottom: 10px; position: relative; 
+      transition: border 0.2s; 
     }
-    .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); border-right: 1px solid #333; }
-    .block-drag-handle:active { cursor: grabbing; }
-
-    .drop-indicator { height: 4px; background: greenyellow; margin: 8px 0; border-radius: 2px; box-shadow: 0 0 10px greenyellow; animation: fadeIn 0.15s ease-out; }
-    @keyframes fadeIn { from { opacity: 0; transform: scaleX(0.8); } to { opacity: 1; transform: scaleX(1); } }
+    .block-card:hover { border-color: greenyellow; }
+    
+    /* 🟢 左侧控制栏 */
+    .block-left-ctrl { 
+        position: absolute; left: 0; top: 0; bottom: 0; width: 40px; 
+        background: rgba(0,0,0,0.2);
+        border-right: 1px solid #333;
+        border-radius: 10px 0 0 10px;
+        display: flex; flex-direction: column; 
+        align-items: center; justify-content: center; gap: 5px;
+    }
+    .move-btn { 
+        cursor: pointer; color: #666; padding: 4px; border-radius: 4px; transition: 0.2s; 
+        display: flex; align-items: center; justify-content: center;
+    }
+    .move-btn:hover { background: #444; color: greenyellow; }
+    .move-btn:active { transform: scale(0.9); }
 
     .block-del { position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: #ff4d4f; border-radius: 0 10px 10px 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; cursor: pointer; color: white; }
     .block-card:hover .block-del { opacity: 1; right: -40px; }
@@ -130,49 +140,33 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
-// 🟢 BlockBuilder：拖拽完全修复版 (使用 isHandleActive)
+// 🟢 BlockBuilder：按钮移动版
 const BlockBuilder = ({ blocks, setBlocks }) => {
-  const [draggedIndex, setDraggedIndex] = useState(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
-  // 🟢 手柄锁状态
-  const isHandleActive = useRef(false);
-
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
-  const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
+  
+  // 🟢 秒删：无需确认
+  const removeBlock = (id) => { setBlocks(blocks.filter(b => b.id !== id)); };
 
-  const handleDragStart = (e, index) => {
-    // 🟢 关键：只有当 isHandleActive 为 true 时才允许开始拖动
-    if (!isHandleActive.current) {
-      e.preventDefault();
-      return;
-    }
-    setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = "move";
-  };
+  // 🟢 核心：上下移动逻辑
+  const moveBlock = (index, direction) => {
+    // direction: -1 (up), 1 (down)
+    if (direction === -1 && index === 0) return; // 已经是第一个
+    if (direction === 1 && index === blocks.length - 1) return; // 已经是最后一个
 
-  const handleDragOver = (e, index) => {
-    e.preventDefault();
-    if (e.clientY < 150) window.scrollBy(0, -10);
-    if (e.clientY > window.innerHeight - 150) window.scrollBy(0, 10);
-    if (dragOverIndex !== index) setDragOverIndex(index);
-  };
-
-  const handleDrop = () => {
-    if (draggedIndex === null || dragOverIndex === null) return;
     const newBlocks = [...blocks];
-    const item = newBlocks.splice(draggedIndex, 1)[0];
-    newBlocks.splice(dragOverIndex, 0, item);
+    const targetIndex = index + direction;
+    
+    // 交换位置
+    [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
     setBlocks(newBlocks);
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-    isHandleActive.current = false;
   };
 
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-    isHandleActive.current = false;
+  // 🟢 辅助：获取中文标签
+  const getBlockLabel = (type) => {
+      if (type === 'h1') return 'H1 标题';
+      if (type === 'lock') return '🔒 加密内容';
+      return '📄 文本内容';
   };
 
   return (
@@ -188,42 +182,28 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
 
       <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
         {blocks.map((b, index) => (
-          <React.Fragment key={b.id}>
-            {dragOverIndex === index && draggedIndex !== index && <div className="drop-indicator" />}
-            
-            <div 
-              className={`block-card ${draggedIndex === index ? 'dragging' : ''}`}
-              draggable="true" 
-              onDragStart={(e) => handleDragStart(e, index)}
-              onDragOver={(e) => handleDragOver(e, index)}
-              onDragEnd={handleDragEnd}
-              onDrop={handleDrop}
-            >
-              {/* 🟢 修复手柄：绑定鼠标按下事件 */}
-              <div 
-                className="block-drag-handle"
-                onMouseDown={() => isHandleActive.current = true}
-                onMouseUp={() => isHandleActive.current = false}
-                onMouseLeave={() => isHandleActive.current = false}
-              >
-                <Icons.DragHandle />
-              </div>
-              
-              <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
-              
-              {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
-              {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，直接粘贴多行链接..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
-              {b.type === 'lock' && (
-                 <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
-                   <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
-                   <textarea className="glow-input" placeholder="输入被加密内容..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px', border:'1px dashed #555'}} />
-                 </div>
-              )}
-              <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
+          <div key={b.id} className="block-card">
+            {/* 🟢 左侧控制栏 */}
+            <div className="block-left-ctrl">
+               <div className="move-btn" onClick={() => moveBlock(index, -1)}><Icons.ArrowUp /></div>
+               <div className="move-btn" onClick={() => moveBlock(index, 1)}><Icons.ArrowDown /></div>
             </div>
             
-            {dragOverIndex === index && index === blocks.length - 1 && draggedIndex !== index && <div className="drop-indicator" />}
-          </React.Fragment>
+            {/* 🟢 中文标签 */}
+            <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>
+                {getBlockLabel(b.type)}
+            </div>
+            
+            {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
+            {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，直接粘贴多行链接..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
+            {b.type === 'lock' && (
+               <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
+                 <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
+                 <textarea className="glow-input" placeholder="输入被加密内容..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px', border:'1px dashed #555'}} />
+               </div>
+            )}
+            <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
+          </div>
         ))}
         {blocks.length === 0 && <div style={{textAlign:'center', color:'#666', padding:'40px', border:'2px dashed #444', borderRadius:'12px'}}>👋 暂无内容，请点击上方按钮添加模块</div>}
       </div>
@@ -248,7 +228,7 @@ const NotionView = ({ blocks }) => (
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
-  const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null);
+  const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null), [rawLinks, setRawLinks] = useState(''), [mdLinks, setMdLinks] = useState('');
   
   const [navIdx, setNavIdx] = useState(0); 
   const [expandedStep, setExpandedStep] = useState(1);
@@ -262,7 +242,6 @@ export default function Home() {
 
   const handleNavClick = (idx) => { setNavIdx(idx); const modes = ['folder','covered','text','gallery']; setViewMode(modes[idx]); setSelectedFolder(null); };
 
-  // 保存逻辑
   useEffect(() => {
     if(view !== 'edit') return;
     const newContent = editorBlocks.map(b => {
@@ -275,110 +254,41 @@ export default function Home() {
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 核心修复：状态机解析 (逐行读取，完美复原加密块)
   const parseContentToBlocks = (md) => {
     if(!md) return [];
-    
-    // 按行读取
-    const lines = md.split(/\r?\n/);
+    const rawChunks = md.split(/\n{2,}/);
     const res = [];
-    
-    let buffer = [];      // 缓存普通文本行
-    let isLocking = false;
-    let lockPwd = '123';
-    let lockBuffer = [];  // 缓存加密内容行
-
     const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
 
-    // 提交普通文本
-    const flushBuffer = () => {
-      if (buffer.length > 0) {
-        // 合并连续文本，去除首尾空行
-        const joined = buffer.map(stripMd).join('\n').trim();
-        if (joined) {
-           res.push({ id: Date.now() + Math.random(), type: 'text', content: joined });
-        }
-        buffer = [];
-      }
-    };
+    let textBuffer = [];
+    const flushText = () => { if (textBuffer.length > 0) { res.push({ id: Date.now() + Math.random(), type: 'text', content: textBuffer.join('\n') }); textBuffer = []; } };
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmed = line.trim();
-
-      // 1. 加密块开始
-      if (!isLocking && trimmed.startsWith(':::lock')) {
-        flushBuffer(); // 先提交之前的文本
-        isLocking = true;
-        lockPwd = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
+    for(let rawBlock of rawChunks) {
+      let t = rawBlock.trim();
+      if(!t) continue;
+      if(t.startsWith(':::lock')) { 
+        flushText();
+        const pwd = t.match(/:::lock\s+(.*?)\n/)?.[1] || '123';
+        const content = t.replace(/:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
+        const strippedContent = content.split('\n').map(stripMd).join('\n');
+        res.push({ id: Date.now() + Math.random(), type: 'lock', pwd, content: strippedContent });
         continue;
       }
-
-      // 2. 加密块结束
-      if (isLocking && trimmed === ':::') {
-        isLocking = false;
-        const joinedLock = lockBuffer.map(stripMd).join('\n').trim();
-        res.push({ id: Date.now() + Math.random(), type: 'lock', pwd: lockPwd, content: joinedLock });
-        lockBuffer = [];
-        continue;
-      }
-
-      // 3. 在加密块内部
-      if (isLocking) {
-        lockBuffer.push(line);
-        continue;
-      }
-
-      // 4. 标题 (独占一行，视为分块)
-      if (trimmed.startsWith('# ')) {
-        flushBuffer();
-        res.push({ id: Date.now() + Math.random(), type: 'h1', content: trimmed.replace('# ', '') });
-        continue;
-      }
-
-      // 5. 普通内容 (如果是空行，视为分块信号)
-      if (!trimmed) {
-         flushBuffer();
-         continue;
-      }
-
-      // 6. 累积普通文本
-      buffer.push(line);
+      if(t.startsWith('# ')) { flushText(); res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); continue; }
+      
+      const strippedContent = t.split('\n').map(stripMd).join('\n');
+      textBuffer.push(strippedContent);
     }
-    
-    // 收尾
-    flushBuffer();
+    flushText();
     return res;
   };
 
   const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
   const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setEditorBlocks(parseContentToBlocks(d.data.content)); setCurrentId(p.id); setView('edit'); setExpandedStep(1); } }).finally(()=>setLoading(false)); };
-  
-  // 🟢 修复：创建时强制 Post 类型
   const handleCreate = () => { setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: 'Post', date: new Date().toISOString().split('T')[0] }); setEditorBlocks([]); setCurrentId(null); setView('edit'); setExpandedStep(1); };
-  
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
-  // 过滤与置顶逻辑
-  const getFilteredPosts = () => {
-     let list = posts.filter(p => {
-        if (activeTab === 'Page') return p.type === 'Page' && ['about', 'download'].includes(p.slug);
-        return p.type === activeTab;
-     });
-     
-     if (searchQuery) list = list.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
-     if (selectedFolder) list = list.filter(p => p.category === selectedFolder);
-
-     if (activeTab === 'Post') {
-        const sticky = list.find(p => p.slug === 'announcement');
-        const others = list.filter(p => p.slug !== 'announcement');
-        if (sticky) return [sticky, ...others];
-        return others;
-     }
-     return list;
-  };
-  const filtered = getFilteredPosts();
-  
+  const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
   const displayTags = (options.tags && options.tags.length > 0) ? (showAllTags ? options.tags : options.tags.slice(0, 12)) : [];
 
   if (!mounted) return null;
@@ -418,13 +328,11 @@ export default function Home() {
           </main>
         ) : (
           <main style={{background:'#424242', padding:'30px', borderRadius:'20px', border:'1px solid #555'}}>
-            {/* 🟢 Step 1: 基础 + 摘要 */}
             <StepAccordion step={1} title="基础信息" isOpen={expandedStep === 1} onToggle={()=>setExpandedStep(expandedStep===1?0:1)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标题 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" value={form.title} onChange={e=>setForm({...form, title:e.target.value})} placeholder="输入文章标题..." /></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>摘要</label><input className="glow-input" value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} placeholder="输入文章摘要..." /></div>
             </StepAccordion>
 
-            {/* 🟢 Step 2: 分类 + 时间 */}
             <StepAccordion step={2} title="分类与时间" isOpen={expandedStep === 2} onToggle={()=>setExpandedStep(expandedStep===2?0:2)}>
                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px'}}>
                  <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>分类 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} placeholder="选择或输入分类" /><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
@@ -432,13 +340,11 @@ export default function Home() {
                </div>
             </StepAccordion>
 
-            {/* 🟢 Step 3: 标签 + 封面 */}
             <StepAccordion step={3} title="标签与封面" isOpen={expandedStep === 3} onToggle={()=>setExpandedStep(expandedStep===3?0:3)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'greenyellow', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
             </StepAccordion>
             
-            {/* 🟢 Step 4: 发布状态 */}
             <StepAccordion step={4} title="发布状态" isOpen={expandedStep === 4} onToggle={()=>setExpandedStep(expandedStep===4?0:4)}>
                <div style={{display:'flex', gap:'20px'}}>
                   <button onClick={()=>setForm({...form, status:'Published'})} style={{flex:1, padding:'15px', borderRadius:'10px', background: form.status==='Published'?'greenyellow':'#333', color: form.status==='Published'?'#000':'#666', border:'1px solid #555', cursor:'pointer', fontWeight:'bold', transition:'0.2s'}}>🚀 已发布 (Published)</button>
