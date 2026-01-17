@@ -254,7 +254,7 @@ export default function Home() {
   const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
   const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null);
   
-  const [navIdx, setNavIdx] = useState(1); // 默认 CoverMode
+  const [navIdx, setNavIdx] = useState(1); 
   const [expandedStep, setExpandedStep] = useState(1);
   const [editorBlocks, setEditorBlocks] = useState([]);
 
@@ -282,64 +282,28 @@ export default function Home() {
   // 加载逻辑
   const parseContentToBlocks = (md) => {
     if(!md) return [];
-    const lines = md.split(/\r?\n/);
+    const rawChunks = md.split(/\n{2,}/);
     const res = [];
-    
-    let buffer = [];      
-    let isLocking = false;
-    let lockPwd = '123';
-    let lockBuffer = [];  
-
     const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
+    let textBuffer = [];
+    const flushText = () => { if (textBuffer.length > 0) { res.push({ id: Date.now() + Math.random(), type: 'text', content: textBuffer.join('\n') }); textBuffer = []; } };
 
-    const flushBuffer = () => {
-      if (buffer.length > 0) {
-        const joined = buffer.map(stripMd).join('\n').trim();
-        if (joined) {
-           res.push({ id: Date.now() + Math.random(), type: 'text', content: joined });
-        }
-        buffer = [];
-      }
-    };
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmed = line.trim();
-
-      if (!isLocking && trimmed.startsWith(':::lock')) {
-        flushBuffer();
-        isLocking = true;
-        lockPwd = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
+    for(let rawBlock of rawChunks) {
+      let t = rawBlock.trim();
+      if(!t) continue;
+      if(t.startsWith(':::lock')) { 
+        flushText();
+        const pwd = t.match(/:::lock\s+(.*?)\n/)?.[1] || '123';
+        const content = t.replace(/:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
+        const strippedContent = content.split('\n').map(stripMd).join('\n');
+        res.push({ id: Date.now() + Math.random(), type: 'lock', pwd, content: strippedContent });
         continue;
       }
-
-      if (isLocking && trimmed === ':::') {
-        isLocking = false;
-        const joinedLock = lockBuffer.map(stripMd).join('\n').trim();
-        res.push({ id: Date.now() + Math.random(), type: 'lock', pwd: lockPwd, content: joinedLock });
-        lockBuffer = [];
-        continue;
-      }
-
-      if (isLocking) {
-        lockBuffer.push(line);
-        continue;
-      }
-
-      if (trimmed.startsWith('# ')) {
-        flushBuffer();
-        res.push({ id: Date.now() + Math.random(), type: 'h1', content: trimmed.replace('# ', '') });
-        continue;
-      }
-
-      if (!trimmed) {
-         flushBuffer();
-         continue;
-      }
-
-      buffer.push(line);
+      if(t.startsWith('# ')) { flushText(); res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); continue; }
+      const strippedContent = t.split('\n').map(stripMd).join('\n');
+      textBuffer.push(strippedContent);
     }
-    flushBuffer();
+    flushText();
     return res;
   };
 
@@ -348,32 +312,21 @@ export default function Home() {
   const handleCreate = () => { setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: 'Post', date: new Date().toISOString().split('T')[0] }); setEditorBlocks([]); setCurrentId(null); setView('edit'); setExpandedStep(1); };
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
-  // 🟢 列表过滤与排序逻辑 (包含置顶)
   const getFilteredPosts = () => {
-     // 1. 类型过滤
      let list = posts.filter(p => {
         if (activeTab === 'Page') return p.type === 'Page' && ['about', 'download'].includes(p.slug);
         return p.type === activeTab;
      });
-     
-     // 2. 搜索与分类过滤
      if (searchQuery) list = list.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
      if (selectedFolder) list = list.filter(p => p.category === selectedFolder);
-
-     // 3. 🟢 置顶逻辑：Announcement 永远第一
      if (activeTab === 'Post') {
-        const pinSlug = 'announcement';
-        const pinIndex = list.findIndex(p => p.slug === pinSlug);
-        
-        if (pinIndex > -1) {
-            const pinned = list[pinIndex];
-            const others = list.filter(p => p.slug !== pinSlug);
-            return [pinned, ...others];
-        }
+        const sticky = list.find(p => p.slug === 'announcement');
+        const others = list.filter(p => p.slug !== 'announcement');
+        if (sticky) return [sticky, ...others];
+        return others;
      }
      return list;
   };
-  
   const filtered = getFilteredPosts();
   const displayTags = (options.tags && options.tags.length > 0) ? (showAllTags ? options.tags : options.tags.slice(0, 12)) : [];
 
@@ -402,25 +355,56 @@ export default function Home() {
             
             <div style={viewMode === 'gallery' || viewMode === 'folder' ? {display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'15px'} : {}}>
               {viewMode === 'folder' && options.categories.map(cat => <div key={cat} onClick={()=>{setSelectedFolder(cat); handleNavClick(1);}} style={{padding:'15px', background:'#424242', borderRadius:'10px', display:'flex', alignItems:'center', gap:'12px', border:'1px solid #555', cursor:'pointer'}} className="btn-ia"><Icons.FolderIcon />{cat}</div>)}
-              {viewMode !== 'folder' && filtered.map(p => (
-                <div key={p.id} onClick={() => handlePreview(p)} className="card-item" style={viewMode === 'text' ? {display:'flex', alignItems:'center', padding:'16px 20px', borderRadius:'12px', background:'#424242', marginBottom:'8px'} : viewMode === 'gallery' ? {display:'flex', flexDirection:'column', height:'auto', background:'#424242', borderRadius:'12px', marginBottom:'12px'} : {}}>
-                  {viewMode === 'covered' && <><div style={{width:'160px', flexShrink:0, background:'#303030', display:'flex', alignItems:'center', justifyContent:'center'}}>{p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{fontSize:'28px', color:'#444'}}>{activeTab[0]}</div>}</div><div style={{padding:'20px 35px', flex:1}}><div style={{fontWeight:'bold', fontSize:'20px', color:'#fff', marginBottom:'8px'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div></>}
-                  {viewMode === 'text' && <div style={{flex:1, display:'flex', alignItems:'center'}}><div style={{flex:1, fontSize:'14px'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div>}
-                  {viewMode === 'gallery' && <><div style={{height:'140px', background:'#303030', display:'flex', alignItems:'center', justifyContent:'center'}}>{p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{fontSize:'40px', color:'#444'}}>{activeTab[0]}</div>}</div><div style={{padding:'15px'}}><div style={{fontSize:'14px', fontWeight:'bold', color:'#fff'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div></>}
-                  <div className="drawer"><div onClick={(e) => { e.stopPropagation(); handleEdit(p); }} style={{background:'greenyellow', color:'#000'}} className="dr-btn"><Icons.Edit /></div><div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){setLoading(true); fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())}}} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div></div>
-                </div>
-              ))}
+              
+              {/* 🟢 列表渲染：状态可视化优化 */}
+              {viewMode !== 'folder' && filtered.map(p => {
+                const isDraft = p.status === 'Draft';
+                const statusColor = isDraft ? '#f97316' : 'greenyellow'; // 橙色 vs 荧光绿
+                
+                // 状态徽章组件
+                const StatusBadge = () => (
+                   <div style={{
+                       position:'absolute', top:10, right:10, zIndex:5,
+                       color: statusColor, 
+                       border: `1px solid ${statusColor}`,
+                       background: 'rgba(0,0,0,0.6)',
+                       fontSize: '9px', fontWeight: 'bold', 
+                       padding: '2px 6px', borderRadius: '4px',
+                       backdropFilter: 'blur(2px)'
+                   }}>
+                       {isDraft ? 'DRAFT' : 'PUB'}
+                   </div>
+                );
+
+                return (
+                  <div key={p.id} onClick={() => handlePreview(p)} className="card-item" 
+                       style={{
+                           // 🟢 草稿强制橙色边框，发布则使用默认透明(Hover变绿)
+                           border: isDraft ? '1px solid #f97316' : '1px solid transparent',
+                           ...(viewMode === 'text' ? {display:'flex', alignItems:'center', padding:'16px 20px', borderRadius:'12px', background:'#424242', marginBottom:'8px'} : 
+                              viewMode === 'gallery' ? {display:'flex', flexDirection:'column', height:'auto', background:'#424242', borderRadius:'12px', marginBottom:'12px'} : {})
+                       }}>
+                    
+                    {/* 🟢 插入状态徽章 */}
+                    <StatusBadge />
+
+                    {viewMode === 'covered' && <><div style={{width:'160px', flexShrink:0, background:'#303030', display:'flex', alignItems:'center', justifyContent:'center'}}>{p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{fontSize:'28px', color:'#444'}}>{activeTab[0]}</div>}</div><div style={{padding:'20px 35px', flex:1}}><div style={{fontWeight:'bold', fontSize:'20px', color:'#fff', marginBottom:'8px'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div></>}
+                    {viewMode === 'text' && <div style={{flex:1, display:'flex', alignItems:'center'}}><div style={{flex:1, fontSize:'14px'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div>}
+                    {viewMode === 'gallery' && <><div style={{height:'140px', background:'#303030', display:'flex', alignItems:'center', justifyContent:'center'}}>{p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{fontSize:'40px', color:'#444'}}>{activeTab[0]}</div>}</div><div style={{padding:'15px'}}><div style={{fontSize:'14px', fontWeight:'bold', color:'#fff'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div></>}
+                    
+                    <div className="drawer"><div onClick={(e) => { e.stopPropagation(); handleEdit(p); }} style={{background:'greenyellow', color:'#000'}} className="dr-btn"><Icons.Edit /></div><div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){setLoading(true); fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())}}} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div></div>
+                  </div>
+                );
+              })}
             </div>
           </main>
         ) : (
           <main style={{background:'#424242', padding:'30px', borderRadius:'20px', border:'1px solid #555'}}>
-            {/* 🟢 Step 1: 基础 + 摘要 */}
             <StepAccordion step={1} title="基础信息" isOpen={expandedStep === 1} onToggle={()=>setExpandedStep(expandedStep===1?0:1)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标题 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" value={form.title} onChange={e=>setForm({...form, title:e.target.value})} placeholder="输入文章标题..." /></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>摘要</label><input className="glow-input" value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} placeholder="输入文章摘要..." /></div>
             </StepAccordion>
 
-            {/* 🟢 Step 2: 分类 + 时间 */}
             <StepAccordion step={2} title="分类与时间" isOpen={expandedStep === 2} onToggle={()=>setExpandedStep(expandedStep===2?0:2)}>
                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px'}}>
                  <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>分类 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} placeholder="选择或输入分类" /><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
@@ -428,13 +412,11 @@ export default function Home() {
                </div>
             </StepAccordion>
 
-            {/* 🟢 Step 3: 标签 + 封面 */}
             <StepAccordion step={3} title="标签与封面" isOpen={expandedStep === 3} onToggle={()=>setExpandedStep(expandedStep===3?0:3)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'greenyellow', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
             </StepAccordion>
             
-            {/* 🟢 Step 4: 发布状态 */}
             <StepAccordion step={4} title="发布状态" isOpen={expandedStep === 4} onToggle={()=>setExpandedStep(expandedStep===4?0:4)}>
                <div style={{display:'flex', gap:'20px'}}>
                   <button onClick={()=>setForm({...form, status:'Published'})} style={{flex:1, padding:'15px', borderRadius:'10px', background: form.status==='Published'?'greenyellow':'#333', color: form.status==='Published'?'#000':'#666', border:'1px solid #555', cursor:'pointer', fontWeight:'bold', transition:'0.2s'}}>🚀 已发布 (Published)</button>
