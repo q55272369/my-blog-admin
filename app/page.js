@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
-// --- 1. 图标库 ---
+// Icons
 const Icons = {
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
@@ -64,12 +64,10 @@ const GlobalStyle = () => (
       transition: border 0.2s; 
     }
     .block-card:hover { border-color: greenyellow; }
-    .block-card.dragging { 
-      opacity: 0.2; 
-      border: 2px dashed greenyellow; 
-    }
+    /* 拖拽时的样式 */
+    .block-card.dragging { opacity: 0.4; border: 2px dashed greenyellow; }
     
-    /* 🟢 拖拽手柄：鼠标放上去变 Grab，并激活父元素拖拽 */
+    /* 手柄样式：位于左侧 */
     .block-drag-handle { 
         position: absolute; left: 0; top: 0; bottom: 0; width: 45px; 
         display: flex; align-items: center; justify-content: center;
@@ -79,7 +77,7 @@ const GlobalStyle = () => (
     .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); border-right: 1px solid #333; }
     .block-drag-handle:active { cursor: grabbing; }
 
-    /* 绿线 */
+    /* 🟢 绿线指示器 */
     .drop-indicator { height: 4px; background: greenyellow; margin: 8px 0; border-radius: 2px; box-shadow: 0 0 10px greenyellow; animation: fadeIn 0.15s ease-out; }
     @keyframes fadeIn { from { opacity: 0; transform: scaleX(0.8); } to { opacity: 1; transform: scaleX(1); } }
 
@@ -110,7 +108,6 @@ const GlobalStyle = () => (
     ::-webkit-scrollbar-thumb:hover { background: #555; }
   `}} />
 );
-// 全屏加载
 const FullScreenLoader = () => (<div className="loader-overlay"><div className="loader"><svg viewBox="0 0 200 60" width="200" height="60"><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M20,50 L20,10 L50,10 C65,10 65,30 50,30 L20,30" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M80,50 L80,10 L110,10 C125,10 125,30 110,30 L80,30 M100,30 L120,50" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M140,30 A20,20 0 1,0 180,30 A20,20 0 1,0 140,30" /></svg></div><div className="loader-text">SYSTEM PROCESSING</div></div>);
 
 const AnimatedBtn = ({ text, onClick, style }) => (<button className="animated-button" onClick={onClick} style={style}><svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg><span className="text">{text}</span><span className="circle"></span><svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg></button>);
@@ -141,30 +138,25 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
-// 🟢 核心：BlockBuilder 拖拽体验终极优化
+// 🟢 拖拽修复版 BlockBuilder
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [draggableId, setDraggableId] = useState(null); // 🟢 悬停激活机制
 
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
   const handleDragStart = (e, index) => {
-    if (!e.target.closest('.block-drag-handle')) {
-      e.preventDefault();
-      return;
-    }
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = "move";
   };
 
   const handleDragOver = (e, index) => {
     e.preventDefault();
-    // 🟢 优化：滚动判定范围缩小至 80px，防止乱跳
-    if (e.clientY < 80) window.scrollBy({ top: -5, behavior: 'smooth' });
-    if (e.clientY > window.innerHeight - 80) window.scrollBy({ top: 5, behavior: 'smooth' });
-    
+    if (e.clientY < 150) window.scrollBy({ top: -10, behavior: 'smooth' });
+    if (e.clientY > window.innerHeight - 150) window.scrollBy({ top: 10, behavior: 'smooth' });
     if (dragOverIndex !== index) setDragOverIndex(index);
   };
 
@@ -176,6 +168,7 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
     setBlocks(newBlocks);
     setDraggedIndex(null);
     setDragOverIndex(null);
+    setDraggableId(null); // 重置状态
   };
 
   return (
@@ -191,28 +184,34 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
 
       <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
         {blocks.map((b, index) => {
-          // 🟢 智能绿线逻辑：
-          // 如果是向下拖 (draggedIndex < index)，显示在下方 (Insert After)
-          // 如果是向上拖 (draggedIndex > index)，显示在上方 (Insert Before)
-          const isDraggingDown = draggedIndex !== null && draggedIndex < index;
-          const isDraggingUp = draggedIndex !== null && draggedIndex > index;
-          const isOver = dragOverIndex === index;
+           // 🟢 智能绿线逻辑
+           const isDraggingDown = draggedIndex !== null && draggedIndex < index;
+           const isDraggingUp = draggedIndex !== null && draggedIndex > index;
+           const isOver = dragOverIndex === index;
 
-          return (
+           return (
             <React.Fragment key={b.id}>
-              {/* 向上拖：显示上方绿线 */}
+              {/* 上方绿线 (向上拖时) */}
               {isOver && isDraggingUp && <div className="drop-indicator" />}
               
               <div 
                 className={`block-card ${draggedIndex === index ? 'dragging' : ''}`}
-                draggable="true" 
+                // 🟢 悬停手柄时才允许拖拽
+                draggable={draggableId === b.id}
                 onDragStart={(e) => handleDragStart(e, index)}
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDrop={handleDrop}
               >
-                <div className="block-drag-handle"><Icons.DragHandle /></div>
-                <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
+                {/* 🟢 手柄事件：控制父级 draggable */}
+                <div 
+                   className="block-drag-handle"
+                   onMouseEnter={() => setDraggableId(b.id)}
+                   onMouseLeave={() => setDraggableId(null)}
+                >
+                   <Icons.DragHandle />
+                </div>
                 
+                <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
                 {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
                 {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，直接粘贴多行链接..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
                 {b.type === 'lock' && (
@@ -224,8 +223,10 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
                 <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
               </div>
               
-              {/* 向下拖：显示下方绿线 */}
+              {/* 下方绿线 (向下拖时) */}
               {isOver && isDraggingDown && <div className="drop-indicator" />}
+              {/* 特殊处理：拖到最后一个元素的下方 */}
+              {isOver && index === blocks.length - 1 && draggedIndex !== index && !isDraggingUp && <div className="drop-indicator" />}
             </React.Fragment>
           );
         })}
@@ -372,13 +373,11 @@ export default function Home() {
           </main>
         ) : (
           <main style={{background:'#424242', padding:'30px', borderRadius:'20px', border:'1px solid #555'}}>
-            {/* 🟢 Step 1: 基础 + 摘要 */}
             <StepAccordion step={1} title="基础信息" isOpen={expandedStep === 1} onToggle={()=>setExpandedStep(expandedStep===1?0:1)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标题 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" value={form.title} onChange={e=>setForm({...form, title:e.target.value})} placeholder="输入文章标题..." /></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>摘要</label><input className="glow-input" value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} placeholder="输入文章摘要..." /></div>
             </StepAccordion>
 
-            {/* 🟢 Step 2: 分类 + 时间 */}
             <StepAccordion step={2} title="分类与时间" isOpen={expandedStep === 2} onToggle={()=>setExpandedStep(expandedStep===2?0:2)}>
                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px'}}>
                  <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>分类 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} placeholder="选择或输入分类" /><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
@@ -386,7 +385,6 @@ export default function Home() {
                </div>
             </StepAccordion>
 
-            {/* 🟢 Step 3: 标签 + 封面 */}
             <StepAccordion step={3} title="标签与封面" isOpen={expandedStep === 3} onToggle={()=>setExpandedStep(expandedStep===3?0:3)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'greenyellow', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
