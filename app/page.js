@@ -110,6 +110,7 @@ const GlobalStyle = () => (
     ::-webkit-scrollbar-thumb:hover { background: #555; }
   `}} />
 );
+// 全屏加载
 const FullScreenLoader = () => (<div className="loader-overlay"><div className="loader"><svg viewBox="0 0 200 60" width="200" height="60"><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M20,50 L20,10 L50,10 C65,10 65,30 50,30 L20,30" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M80,50 L80,10 L110,10 C125,10 125,30 110,30 L80,30 M100,30 L120,50" /><path className="dash" fill="none" stroke="greenyellow" strokeWidth="3" d="M140,30 A20,20 0 1,0 180,30 A20,20 0 1,0 140,30" /></svg></div><div className="loader-text">SYSTEM PROCESSING</div></div>);
 
 const AnimatedBtn = ({ text, onClick, style }) => (<button className="animated-button" onClick={onClick} style={style}><svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg><span className="text">{text}</span><span className="circle"></span><svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path></svg></button>);
@@ -140,26 +141,30 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
-// 🟢 修复后的 BlockBuilder
+// 🟢 核心：BlockBuilder 拖拽体验终极优化
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
-  // 🟢 状态：当前哪个块允许被拖拽（只有悬停手柄时才为该块ID）
-  const [draggableId, setDraggableId] = useState(null);
 
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
   const handleDragStart = (e, index) => {
+    if (!e.target.closest('.block-drag-handle')) {
+      e.preventDefault();
+      return;
+    }
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = "move";
   };
 
   const handleDragOver = (e, index) => {
     e.preventDefault();
-    if (e.clientY < 150) window.scrollBy({ top: -10, behavior: 'smooth' });
-    if (e.clientY > window.innerHeight - 150) window.scrollBy({ top: 10, behavior: 'smooth' });
+    // 🟢 优化：滚动判定范围缩小至 80px，防止乱跳
+    if (e.clientY < 80) window.scrollBy({ top: -5, behavior: 'smooth' });
+    if (e.clientY > window.innerHeight - 80) window.scrollBy({ top: 5, behavior: 'smooth' });
+    
     if (dragOverIndex !== index) setDragOverIndex(index);
   };
 
@@ -171,7 +176,6 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
     setBlocks(newBlocks);
     setDraggedIndex(null);
     setDragOverIndex(null);
-    setDraggableId(null);
   };
 
   return (
@@ -186,43 +190,45 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
       </div>
 
       <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
-        {blocks.map((b, index) => (
-          <React.Fragment key={b.id}>
-            {dragOverIndex === index && draggedIndex !== index && <div className="drop-indicator" />}
-            
-            <div 
-              className={`block-card ${draggedIndex === index ? 'dragging' : ''}`}
-              // 🟢 核心修复：只有当 draggableId 匹配时，才开启 HTML5 拖拽
-              draggable={draggableId === b.id}
-              onDragStart={(e) => handleDragStart(e, index)}
-              onDragOver={(e) => handleDragOver(e, index)}
-              onDrop={handleDrop}
-            >
-              {/* 🟢 手柄：鼠标进入时激活拖拽，离开时禁用 */}
+        {blocks.map((b, index) => {
+          // 🟢 智能绿线逻辑：
+          // 如果是向下拖 (draggedIndex < index)，显示在下方 (Insert After)
+          // 如果是向上拖 (draggedIndex > index)，显示在上方 (Insert Before)
+          const isDraggingDown = draggedIndex !== null && draggedIndex < index;
+          const isDraggingUp = draggedIndex !== null && draggedIndex > index;
+          const isOver = dragOverIndex === index;
+
+          return (
+            <React.Fragment key={b.id}>
+              {/* 向上拖：显示上方绿线 */}
+              {isOver && isDraggingUp && <div className="drop-indicator" />}
+              
               <div 
-                className="block-drag-handle"
-                onMouseEnter={() => setDraggableId(b.id)}
-                onMouseLeave={() => setDraggableId(null)}
+                className={`block-card ${draggedIndex === index ? 'dragging' : ''}`}
+                draggable="true" 
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDrop={handleDrop}
               >
-                <Icons.DragHandle />
+                <div className="block-drag-handle"><Icons.DragHandle /></div>
+                <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
+                
+                {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
+                {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，直接粘贴多行链接..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
+                {b.type === 'lock' && (
+                   <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
+                     <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
+                     <textarea className="glow-input" placeholder="输入被加密内容..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px', border:'1px dashed #555'}} />
+                   </div>
+                )}
+                <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
               </div>
               
-              <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
-              
-              {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
-              {b.type === 'text' && <textarea className="glow-input" placeholder="输入正文，直接粘贴多行链接..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px'}} />}
-              {b.type === 'lock' && (
-                 <div style={{background:'#202024', padding:'10px', borderRadius:'8px'}}>
-                   <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}><span>🔑</span><input className="glow-input" placeholder="密码" value={b.pwd} onChange={e=>updateBlock(b.id, e.target.value, 'pwd')} style={{width:'100px'}} /></div>
-                   <textarea className="glow-input" placeholder="输入被加密内容..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{minHeight:'200px', border:'1px dashed #555'}} />
-                 </div>
-              )}
-              <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
-            </div>
-            
-            {dragOverIndex === index && index === blocks.length - 1 && draggedIndex !== index && <div className="drop-indicator" />}
-          </React.Fragment>
-        ))}
+              {/* 向下拖：显示下方绿线 */}
+              {isOver && isDraggingDown && <div className="drop-indicator" />}
+            </React.Fragment>
+          );
+        })}
         {blocks.length === 0 && <div style={{textAlign:'center', color:'#666', padding:'40px', border:'2px dashed #444', borderRadius:'12px'}}>👋 暂无内容，请点击上方按钮添加模块</div>}
       </div>
     </div>
