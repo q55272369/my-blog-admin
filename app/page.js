@@ -254,8 +254,7 @@ export default function Home() {
   const [view, setView] = useState('list'), [viewMode, setViewMode] = useState('covered'), [posts, setPosts] = useState([]), [options, setOptions] = useState({ categories: [], tags: [] }), [loading, setLoading] = useState(false), [activeTab, setActiveTab] = useState('Post'), [searchQuery, setSearchQuery] = useState(''), [showAllTags, setShowAllTags] = useState(false), [selectedFolder, setSelectedFolder] = useState(null), [previewData, setPreviewData] = useState(null);
   const [form, setForm] = useState({ title: '', slug: '', excerpt: '', content: '', category: '', tags: '', cover: '', status: 'Published', type: 'Post', date: '' }), [currentId, setCurrentId] = useState(null);
   
-  // 🟢 修复：默认 navIdx = 1 (CoverMode)
-  const [navIdx, setNavIdx] = useState(1); 
+  const [navIdx, setNavIdx] = useState(1); // 默认 CoverMode
   const [expandedStep, setExpandedStep] = useState(1);
   const [editorBlocks, setEditorBlocks] = useState([]);
 
@@ -349,7 +348,33 @@ export default function Home() {
   const handleCreate = () => { setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: 'Post', date: new Date().toISOString().split('T')[0] }); setEditorBlocks([]); setCurrentId(null); setView('edit'); setExpandedStep(1); };
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
-  const filtered = posts.filter(p => p.type === activeTab && (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug||'').toLowerCase().includes(searchQuery.toLowerCase())) && (selectedFolder ? p.category === selectedFolder : true));
+  // 🟢 列表过滤与排序逻辑 (包含置顶)
+  const getFilteredPosts = () => {
+     // 1. 类型过滤
+     let list = posts.filter(p => {
+        if (activeTab === 'Page') return p.type === 'Page' && ['about', 'download'].includes(p.slug);
+        return p.type === activeTab;
+     });
+     
+     // 2. 搜索与分类过滤
+     if (searchQuery) list = list.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
+     if (selectedFolder) list = list.filter(p => p.category === selectedFolder);
+
+     // 3. 🟢 置顶逻辑：Announcement 永远第一
+     if (activeTab === 'Post') {
+        const pinSlug = 'announcement';
+        const pinIndex = list.findIndex(p => p.slug === pinSlug);
+        
+        if (pinIndex > -1) {
+            const pinned = list[pinIndex];
+            const others = list.filter(p => p.slug !== pinSlug);
+            return [pinned, ...others];
+        }
+     }
+     return list;
+  };
+  
+  const filtered = getFilteredPosts();
   const displayTags = (options.tags && options.tags.length > 0) ? (showAllTags ? options.tags : options.tags.slice(0, 12)) : [];
 
   if (!mounted) return null;
