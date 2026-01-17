@@ -56,19 +56,17 @@ const GlobalStyle = () => (
     .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
     .nav-item.active { color: #000; font-weight: bold; }
     
-    /* 🟢 修复：卡片默认不可拖，手柄可拖 */
     .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; transition: border 0.2s, transform 0.2s; cursor: default; }
     .block-card:hover { border-color: greenyellow; }
-    .block-card.dragging { opacity: 0.2; transform: scale(0.98); border: 2px dashed greenyellow; }
+    .block-card.dragging { opacity: 0.3; background: #1a1a1d; border: 1px dashed greenyellow; }
     
-    /* 🟢 手柄样式优化 */
     .block-drag-handle { 
         position: absolute; left: 0; top: 0; bottom: 0; width: 45px; 
         display: flex; align-items: center; justify-content: center;
-        cursor: grab; color: #666; transition: 0.2s; z-index: 20; /* 极高的层级 */
-        background: transparent; 
+        cursor: grab; color: #666; transition: 0.2s; z-index: 10; 
+        border-right: 1px solid transparent;
     }
-    .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); }
+    .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); border-right: 1px solid #333; }
     .block-drag-handle:active { cursor: grabbing; }
 
     .drop-indicator { height: 4px; background: greenyellow; margin: 8px 0; border-radius: 2px; box-shadow: 0 0 10px greenyellow; animation: fadeIn 0.15s ease-out; }
@@ -114,6 +112,7 @@ const SearchInput = ({ value, onChange }) => (<div className="group"><svg classN
 
 const StepAccordion = ({ step, title, isOpen, onToggle, children }) => (<div><div className="acc-btn" onClick={onToggle}><div style={{fontWeight:'bold'}}><span style={{color:'greenyellow', marginRight:'10px'}}>Step {step}</span>{title}</div><div style={{transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'0.3s'}}><Icons.ChevronDown /></div></div><div className={`acc-content ${isOpen ? 'open' : ''}`}>{children}</div></div>);
 
+// 🟢 清洗 + 自动媒体包装
 const cleanAndFormat = (input) => {
   if (!input) return "";
   const lines = input.split('\n').map(line => {
@@ -123,6 +122,8 @@ const cleanAndFormat = (input) => {
     if(mdMatch) raw = mdMatch[1];
     const urlMatch = raw.match(/https?:\/\/[^\s)\]"]+/);
     if(urlMatch) raw = urlMatch[0];
+    
+    // 自动套壳：如果用户只粘贴了链接，自动加上 ![]()
     if (/\.(jpg|jpeg|png|gif|webp|bmp|svg|mp4|mov|webm|ogg|mkv)(\?|$)/i.test(raw)) {
        return `![](${raw})`;
     }
@@ -131,7 +132,6 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
-// 🟢 BlockBuilder：拖拽完全修复
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
@@ -140,7 +140,6 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
-  // 🟢 关键：强制检查拖拽源
   const handleDragStart = (e, index) => {
     if (!e.target.closest('.block-drag-handle')) {
       e.preventDefault();
@@ -190,9 +189,7 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={handleDrop}
             >
-              {/* 🟢 手柄区域 */}
               <div className="block-drag-handle"><Icons.DragHandle /></div>
-              
               <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
               
               {b.type === 'h1' && <input className="glow-input" placeholder="输入大标题..." value={b.content} onChange={e=>updateBlock(b.id, e.target.value)} style={{fontSize:'20px', fontWeight:'bold'}} />}
@@ -253,57 +250,84 @@ export default function Home() {
       let content = b.content || '';
       if (b.type === 'text' || b.type === 'lock') content = cleanAndFormat(content); 
       if(b.type === 'h1') return `# ${content}`;
-      if(b.type === 'lock') return `:::lock ${b.pwd}\n\n${content}\n\n:::`;
+      if(b.type === 'lock') return `:::lock ${b.pwd}\n\n${content}\n\n:::`; // 加密块内部双换行
       return content;
-    }).join('\n\n'); 
+    }).join('\n\n'); // 块之间双换行
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 加载：贪婪合并算法 (修复块拆分问题)
+  // 🟢 加载：状态机解析 (修复结构错乱)
   const parseContentToBlocks = (md) => {
     if(!md) return [];
-    const rawChunks = md.split(/\n{2,}/);
+    
+    // 按行处理，不再依赖 split 切割大块，完全自主控制状态
+    const lines = md.split(/\r?\n/);
     const res = [];
+    
+    let buffer = [];      // 缓存当前正在读取的内容行
+    let isLocking = false;
+    let lockPwd = '123';
+    let currentType = 'text'; // 'text' | 'lock' | 'h1'
+
+    // 辅助：剥离 ![]()
     const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
 
-    // 缓存区：用于合并连续的 text/media
-    let textBuffer = [];
-
-    const flushText = () => {
-      if (textBuffer.length > 0) {
-        // 合并为一个文本块
-        res.push({ id: Date.now() + Math.random(), type: 'text', content: textBuffer.join('\n') });
-        textBuffer = [];
+    // 提交当前缓冲区
+    const flushBuffer = () => {
+      if (buffer.length > 0) {
+        // 如果是纯空行，丢弃（除了加密块内部）
+        const joined = buffer.map(stripMd).join('\n').trim();
+        if (joined) {
+           res.push({ id: Date.now() + Math.random(), type: currentType, content: joined, pwd: lockPwd });
+        }
+        buffer = [];
       }
     };
 
-    for(let rawBlock of rawChunks) {
-      let t = rawBlock.trim();
-      if(!t) continue;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
 
-      // 1. 加密块 (必须独立)
-      if(t.startsWith(':::lock')) { 
-        flushText(); // 先提交之前的
-        const pwd = t.match(/:::lock\s+(.*?)\n/)?.[1] || '123';
-        const content = t.replace(/:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
-        const strippedContent = content.split('\n').map(stripMd).join('\n');
-        res.push({ id: Date.now() + Math.random(), type: 'lock', pwd, content: strippedContent });
+      // 1. 遇到空行
+      if (!trimmed) {
+        if (isLocking) {
+           buffer.push(line); // 加密块内部保留空行
+        } else {
+           flushBuffer(); // 普通文本遇到空行，视为分块信号
+        }
         continue;
       }
-      
-      // 2. 标题 (必须独立)
-      if(t.startsWith('# ')) { 
-        flushText();
-        res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); 
-        continue; 
+
+      // 2. 加密块开始
+      if (!isLocking && trimmed.startsWith(':::lock')) {
+        flushBuffer(); // 提交之前的文本块
+        isLocking = true;
+        currentType = 'lock';
+        lockPwd = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
+        continue;
       }
-      
-      // 3. 普通内容：加入缓存区 (贪婪合并)
-      const strippedContent = t.split('\n').map(stripMd).join('\n');
-      textBuffer.push(strippedContent);
+
+      // 3. 加密块结束
+      if (isLocking && trimmed === ':::') {
+        flushBuffer(); // 提交这个加密块
+        isLocking = false;
+        currentType = 'text'; // 重置为默认文本
+        continue;
+      }
+
+      // 4. 标题 (独占一行)
+      if (!isLocking && trimmed.startsWith('# ')) {
+        flushBuffer();
+        res.push({ id: Date.now() + Math.random(), type: 'h1', content: trimmed.replace('# ', '') });
+        continue;
+      }
+
+      // 5. 普通内容
+      buffer.push(line);
     }
-    // 最后提交
-    flushText();
+    
+    // 收尾
+    flushBuffer();
     return res;
   };
 
