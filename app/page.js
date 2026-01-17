@@ -12,10 +12,9 @@ const Icons = {
   Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
   Tutorial: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
   ChevronDown: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>,
-  DragHandle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><circle cx="4" cy="6" r="2"></circle><circle cx="4" cy="12" r="2"></circle><circle cx="4" cy="18" r="2"></circle></svg>,
   Cloud: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>,
-  ArrowUp: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>,
-  ArrowDown: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+  ArrowUp: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg>,
+  ArrowDown: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="6 9 12 15 18 9"></polyline></svg>
 };
 
 const GlobalStyle = () => (
@@ -58,45 +57,14 @@ const GlobalStyle = () => (
     .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
     .nav-item.active { color: #000; font-weight: bold; }
     
-    .block-card { 
-      background: #2a2a2e; border: 1px solid #333; border-radius: 10px; 
-      padding: 15px 15px 15px 55px; margin-bottom: 12px; position: relative; 
-      transition: border 0.2s; 
-    }
+    /* 🟢 积木样式 (点击移动版) */
+    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px 15px 15px 55px; margin-bottom: 12px; position: relative; transition: border 0.2s; }
     .block-card:hover { border-color: greenyellow; }
-    
-    /* 🟢 移动动画：绿色呼吸闪烁 */
-    .block-card.just-moved {
-        animation: moveHighlight 0.6s ease-out;
-    }
-    @keyframes moveHighlight {
-        0% { box-shadow: 0 0 0 0 rgba(173, 255, 47, 0); border-color: #333; }
-        30% { box-shadow: 0 0 15px 2px rgba(173, 255, 47, 0.4); border-color: greenyellow; background: #2f2f33; }
-        100% { box-shadow: 0 0 0 0 rgba(173, 255, 47, 0); border-color: #333; background: #2a2a2e; }
-    }
-    
-    .block-left-ctrl { 
-        position: absolute; left: 0; top: 0; bottom: 0; width: 45px; 
-        background: rgba(0,0,0,0.2);
-        border-right: 1px solid #333;
-        border-radius: 10px 0 0 10px;
-        display: flex; flex-direction: column; 
-        align-items: center; justify-content: center; gap: 8px;
-    }
-    .move-btn { 
-        cursor: pointer; color: #888; 
-        width: 30px; height: 30px; 
-        border-radius: 6px; transition: 0.2s; 
-        display: flex; align-items: center; justify-content: center;
-        background: rgba(255,255,255,0.05);
-    }
+    .block-left-ctrl { position: absolute; left: 0; top: 0; bottom: 0; width: 45px; background: rgba(0,0,0,0.2); border-right: 1px solid #333; border-radius: 10px 0 0 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+    .move-btn { cursor: pointer; color: #888; width: 30px; height: 30px; border-radius: 6px; transition: 0.2s; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); }
     .move-btn:hover { background: greenyellow; color: #000; box-shadow: 0 0 10px greenyellow; }
     .move-btn:active { transform: scale(0.9); }
-    
-    .block-label {
-        font-size: 12px; color: greenyellow; margin-bottom: 8px; 
-        fontWeight: bold; text-transform: uppercase; letter-spacing: 1px;
-    }
+    .block-label { font-size: 12px; color: greenyellow; margin-bottom: 8px; fontWeight: bold; text-transform: uppercase; letter-spacing: 1px; }
 
     .block-del { position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: #ff4d4f; border-radius: 0 10px 10px 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; cursor: pointer; color: white; }
     .block-card:hover .block-del { opacity: 1; right: -40px; }
@@ -155,36 +123,20 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
-// 🟢 BlockBuilder (带移位高亮动画)
+// 🟢 BlockBuilder (Click Move Only)
 const BlockBuilder = ({ blocks, setBlocks }) => {
-  // 🟢 动画状态
-  const [movingId, setMovingId] = useState(null);
-
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
-  
   const removeBlock = (id) => { setBlocks(blocks.filter(b => b.id !== id)); };
 
-  // 🟢 移动逻辑 + 动画触发
+  // 🟢 点击移动逻辑
   const moveBlock = (index, direction) => {
     if (direction === -1 && index === 0) return;
     if (direction === 1 && index === blocks.length - 1) return;
-
     const newBlocks = [...blocks];
     const targetIndex = index + direction;
-    // 交换
-    const temp = newBlocks[index];
-    newBlocks[index] = newBlocks[targetIndex];
-    newBlocks[targetIndex] = temp;
-    
+    [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
     setBlocks(newBlocks);
-    
-    // 触发动画 (给目标块一个 ID)
-    const targetId = temp.id;
-    setMovingId(targetId);
-    
-    // 0.6秒后清除动画状态
-    setTimeout(() => setMovingId(null), 600);
   };
 
   const getBlockLabel = (type) => {
@@ -206,10 +158,7 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
 
       <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
         {blocks.map((b, index) => (
-          <div 
-            key={b.id} 
-            className={`block-card ${movingId === b.id ? 'just-moved' : ''}`} // 🟢 应用动画类
-          >
+          <div key={b.id} className="block-card">
             {/* 左侧控制栏 */}
             <div className="block-left-ctrl">
                <div className="move-btn" onClick={() => moveBlock(index, -1)}><Icons.ArrowUp /></div>
@@ -279,39 +228,90 @@ export default function Home() {
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 加载逻辑
+  // 🟢 核心修复：状态机解析 (逐行读取，完美复原加密块)
   const parseContentToBlocks = (md) => {
     if(!md) return [];
-    const rawChunks = md.split(/\n{2,}/);
+    
+    // 按行读取
+    const lines = md.split(/\r?\n/);
     const res = [];
-    const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
-    let textBuffer = [];
-    const flushText = () => { if (textBuffer.length > 0) { res.push({ id: Date.now() + Math.random(), type: 'text', content: textBuffer.join('\n') }); textBuffer = []; } };
+    
+    let buffer = [];      // 缓存普通文本行
+    let isLocking = false;
+    let lockPwd = '123';
+    let lockBuffer = [];  // 缓存加密内容行
 
-    for(let rawBlock of rawChunks) {
-      let t = rawBlock.trim();
-      if(!t) continue;
-      if(t.startsWith(':::lock')) { 
-        flushText();
-        const pwd = t.match(/:::lock\s+(.*?)\n/)?.[1] || '123';
-        const content = t.replace(/:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
-        const strippedContent = content.split('\n').map(stripMd).join('\n');
-        res.push({ id: Date.now() + Math.random(), type: 'lock', pwd, content: strippedContent });
+    const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
+
+    // 提交普通文本
+    const flushBuffer = () => {
+      if (buffer.length > 0) {
+        // 合并连续文本，去除首尾空行
+        const joined = buffer.map(stripMd).join('\n').trim();
+        if (joined) {
+           res.push({ id: Date.now() + Math.random(), type: 'text', content: joined });
+        }
+        buffer = [];
+      }
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      // 1. 加密块开始
+      if (!isLocking && trimmed.startsWith(':::lock')) {
+        flushBuffer(); // 先提交之前的文本
+        isLocking = true;
+        lockPwd = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
         continue;
       }
-      if(t.startsWith('# ')) { flushText(); res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') }); continue; }
-      const strippedContent = t.split('\n').map(stripMd).join('\n');
-      textBuffer.push(strippedContent);
+
+      // 2. 加密块结束
+      if (isLocking && trimmed === ':::') {
+        isLocking = false;
+        const joinedLock = lockBuffer.map(stripMd).join('\n').trim();
+        res.push({ id: Date.now() + Math.random(), type: 'lock', pwd: lockPwd, content: joinedLock });
+        lockBuffer = [];
+        continue;
+      }
+
+      // 3. 在加密块内部
+      if (isLocking) {
+        lockBuffer.push(line);
+        continue;
+      }
+
+      // 4. 标题 (独占一行)
+      if (trimmed.startsWith('# ')) {
+        flushBuffer();
+        res.push({ id: Date.now() + Math.random(), type: 'h1', content: trimmed.replace('# ', '') });
+        continue;
+      }
+
+      // 5. 普通内容 (空行视为分块)
+      if (!trimmed) {
+         flushBuffer();
+         continue;
+      }
+
+      // 6. 累积普通文本
+      buffer.push(line);
     }
-    flushText();
+    
+    // 收尾
+    flushBuffer();
     return res;
   };
 
   const handlePreview = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if(d.success) setPreviewData(d.data); }).finally(()=>setLoading(false)); };
   const handleEdit = (p) => { setLoading(true); fetch('/api/post?id='+p.id).then(r=>r.json()).then(d=>{ if (d.success) { setForm(d.data); setEditorBlocks(parseContentToBlocks(d.data.content)); setCurrentId(p.id); setView('edit'); setExpandedStep(1); } }).finally(()=>setLoading(false)); };
+  
   const handleCreate = () => { setForm({ title: '', slug: 'p-'+Date.now().toString(36), excerpt:'', content:'', category:'', tags:'', cover:'', status:'Published', type: 'Post', date: new Date().toISOString().split('T')[0] }); setEditorBlocks([]); setCurrentId(null); setView('edit'); setExpandedStep(1); };
+  
   const deleteTagOption = async (e, tagName) => { e.stopPropagation(); if(!confirm(`移除标签 "${tagName}"？`)) return; setLoading(true); await fetch(`/api/tags?name=${encodeURIComponent(tagName)}`, { method: 'DELETE' }); fetchPosts(); };
 
+  // 列表渲染 + 状态可视化
   const getFilteredPosts = () => {
      let list = posts.filter(p => {
         if (activeTab === 'Page') return p.type === 'Page' && ['about', 'download'].includes(p.slug);
@@ -356,42 +356,18 @@ export default function Home() {
             <div style={viewMode === 'gallery' || viewMode === 'folder' ? {display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'15px'} : {}}>
               {viewMode === 'folder' && options.categories.map(cat => <div key={cat} onClick={()=>{setSelectedFolder(cat); handleNavClick(1);}} style={{padding:'15px', background:'#424242', borderRadius:'10px', display:'flex', alignItems:'center', gap:'12px', border:'1px solid #555', cursor:'pointer'}} className="btn-ia"><Icons.FolderIcon />{cat}</div>)}
               
-              {/* 🟢 列表渲染：状态可视化优化 */}
               {viewMode !== 'folder' && filtered.map(p => {
                 const isDraft = p.status === 'Draft';
-                const statusColor = isDraft ? '#f97316' : 'greenyellow'; // 橙色 vs 荧光绿
-                
-                // 状态徽章组件
-                const StatusBadge = () => (
-                   <div style={{
-                       position:'absolute', top:10, right:10, zIndex:5,
-                       color: statusColor, 
-                       border: `1px solid ${statusColor}`,
-                       background: 'rgba(0,0,0,0.6)',
-                       fontSize: '9px', fontWeight: 'bold', 
-                       padding: '2px 6px', borderRadius: '4px',
-                       backdropFilter: 'blur(2px)'
-                   }}>
-                       {isDraft ? 'DRAFT' : 'PUB'}
-                   </div>
-                );
+                const statusColor = isDraft ? '#f97316' : 'greenyellow';
+                const StatusBadge = () => ( <div style={{position:'absolute', top:10, right:10, zIndex:5, color: statusColor, border: `1px solid ${statusColor}`, background: 'rgba(0,0,0,0.6)', fontSize: '9px', fontWeight: 'bold', padding: '2px 6px', borderRadius: '4px', backdropFilter: 'blur(2px)'}}>{isDraft ? 'DRAFT' : 'PUB'}</div> );
 
                 return (
                   <div key={p.id} onClick={() => handlePreview(p)} className="card-item" 
-                       style={{
-                           // 🟢 草稿强制橙色边框，发布则使用默认透明(Hover变绿)
-                           border: isDraft ? '1px solid #f97316' : '1px solid transparent',
-                           ...(viewMode === 'text' ? {display:'flex', alignItems:'center', padding:'16px 20px', borderRadius:'12px', background:'#424242', marginBottom:'8px'} : 
-                              viewMode === 'gallery' ? {display:'flex', flexDirection:'column', height:'auto', background:'#424242', borderRadius:'12px', marginBottom:'12px'} : {})
-                       }}>
-                    
-                    {/* 🟢 插入状态徽章 */}
+                       style={{ border: isDraft ? '1px solid #f97316' : '1px solid transparent', ...(viewMode === 'text' ? {display:'flex', alignItems:'center', padding:'16px 20px', borderRadius:'12px', background:'#424242', marginBottom:'8px'} : viewMode === 'gallery' ? {display:'flex', flexDirection:'column', height:'auto', background:'#424242', borderRadius:'12px', marginBottom:'12px'} : {}) }}>
                     <StatusBadge />
-
                     {viewMode === 'covered' && <><div style={{width:'160px', flexShrink:0, background:'#303030', display:'flex', alignItems:'center', justifyContent:'center'}}>{p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{fontSize:'28px', color:'#444'}}>{activeTab[0]}</div>}</div><div style={{padding:'20px 35px', flex:1}}><div style={{fontWeight:'bold', fontSize:'20px', color:'#fff', marginBottom:'8px'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div></>}
                     {viewMode === 'text' && <div style={{flex:1, display:'flex', alignItems:'center'}}><div style={{flex:1, fontSize:'14px'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div>}
                     {viewMode === 'gallery' && <><div style={{height:'140px', background:'#303030', display:'flex', alignItems:'center', justifyContent:'center'}}>{p.cover ? <img src={p.cover} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{fontSize:'40px', color:'#444'}}>{activeTab[0]}</div>}</div><div style={{padding:'15px'}}><div style={{fontSize:'14px', fontWeight:'bold', color:'#fff'}}>{p.title}</div><div style={{color:'#fff', fontSize:'12px', opacity:0.8}}>{p.category} · {p.date}</div></div></>}
-                    
                     <div className="drawer"><div onClick={(e) => { e.stopPropagation(); handleEdit(p); }} style={{background:'greenyellow', color:'#000'}} className="dr-btn"><Icons.Edit /></div><div onClick={(e) => { e.stopPropagation(); if(confirm('彻底删除？')){setLoading(true); fetch('/api/post?id='+p.id,{method:'DELETE'}).then(()=>fetchPosts())}}} style={{background:'#ff4d4f'}} className="dr-btn"><Icons.Trash /></div></div>
                   </div>
                 );
