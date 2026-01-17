@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 
+// --- 1. 图标库 ---
 const Icons = {
   Search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
   CoverMode: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
@@ -56,20 +57,36 @@ const GlobalStyle = () => (
     .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
     .nav-item.active { color: #000; font-weight: bold; }
     
-    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; transition: border 0.2s, transform 0.2s; cursor: default; }
+    /* 🟢 积木与拖拽样式 */
+    .block-card { 
+      background: #2a2a2e; border: 1px solid #333; border-radius: 10px; 
+      padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; 
+      transition: transform 0.2s, box-shadow 0.2s; 
+      cursor: default; /* 默认不显示拖拽手势 */
+    }
     .block-card:hover { border-color: greenyellow; }
-    .block-card.dragging { opacity: 0.3; background: #1a1a1d; border: 1px dashed greenyellow; }
+    .block-card.dragging { 
+      opacity: 0.3; 
+      transform: scale(0.98); 
+      border: 2px dashed greenyellow; 
+    }
     
+    /* 拖拽手柄：显眼、z-index高 */
     .block-drag-handle { 
         position: absolute; left: 0; top: 0; bottom: 0; width: 45px; 
         display: flex; align-items: center; justify-content: center;
-        cursor: grab; color: #666; transition: 0.2s; z-index: 10; 
+        cursor: grab; color: #666; transition: 0.2s; z-index: 20;
         border-right: 1px solid transparent;
     }
     .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); border-right: 1px solid #333; }
     .block-drag-handle:active { cursor: grabbing; }
 
-    .drop-indicator { height: 4px; background: greenyellow; margin: 8px 0; border-radius: 2px; box-shadow: 0 0 10px greenyellow; animation: fadeIn 0.15s ease-out; }
+    /* 🟢 绿线指示器：明确的插入位置 */
+    .drop-indicator { 
+      height: 4px; background: greenyellow; margin: 8px 0; border-radius: 2px; 
+      box-shadow: 0 0 10px greenyellow; 
+      animation: fadeIn 0.15s ease-out; 
+    }
     @keyframes fadeIn { from { opacity: 0; transform: scaleX(0.8); } to { opacity: 1; transform: scaleX(1); } }
 
     .block-del { position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: #ff4d4f; border-radius: 0 10px 10px 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; cursor: pointer; color: white; }
@@ -112,7 +129,6 @@ const SearchInput = ({ value, onChange }) => (<div className="group"><svg classN
 
 const StepAccordion = ({ step, title, isOpen, onToggle, children }) => (<div><div className="acc-btn" onClick={onToggle}><div style={{fontWeight:'bold'}}><span style={{color:'greenyellow', marginRight:'10px'}}>Step {step}</span>{title}</div><div style={{transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'0.3s'}}><Icons.ChevronDown /></div></div><div className={`acc-content ${isOpen ? 'open' : ''}`}>{children}</div></div>);
 
-// 🟢 清洗 + 自动媒体包装
 const cleanAndFormat = (input) => {
   if (!input) return "";
   const lines = input.split('\n').map(line => {
@@ -122,8 +138,6 @@ const cleanAndFormat = (input) => {
     if(mdMatch) raw = mdMatch[1];
     const urlMatch = raw.match(/https?:\/\/[^\s)\]"]+/);
     if(urlMatch) raw = urlMatch[0];
-    
-    // 自动套壳：如果用户只粘贴了链接，自动加上 ![]()
     if (/\.(jpg|jpeg|png|gif|webp|bmp|svg|mp4|mov|webm|ogg|mkv)(\?|$)/i.test(raw)) {
        return `![](${raw})`;
     }
@@ -132,6 +146,7 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
+// 🟢 BlockBuilder：集成自动滚动与绿线引导
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
@@ -141,6 +156,7 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
   const handleDragStart = (e, index) => {
+    // 🟢 关键：只有点击手柄才允许拖拽
     if (!e.target.closest('.block-drag-handle')) {
       e.preventDefault();
       return;
@@ -150,9 +166,16 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
   };
 
   const handleDragOver = (e, index) => {
-    e.preventDefault();
-    if (e.clientY < 150) window.scrollBy(0, -10);
-    if (e.clientY > window.innerHeight - 150) window.scrollBy(0, 10);
+    e.preventDefault(); // 允许 Drop
+    
+    // 🟢 自动滚动逻辑
+    if (e.clientY < 150) {
+       window.scrollBy({ top: -10, behavior: 'smooth' });
+    }
+    if (e.clientY > window.innerHeight - 150) {
+       window.scrollBy({ top: 10, behavior: 'smooth' });
+    }
+    
     if (dragOverIndex !== index) setDragOverIndex(index);
   };
 
@@ -160,8 +183,11 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
     if (draggedIndex === null || dragOverIndex === null) return;
     const newBlocks = [...blocks];
     const item = newBlocks.splice(draggedIndex, 1)[0];
+    // 插入到目标位置
     newBlocks.splice(dragOverIndex, 0, item);
     setBlocks(newBlocks);
+    
+    // 重置状态
     setDraggedIndex(null);
     setDragOverIndex(null);
   };
@@ -180,6 +206,7 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
       <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
         {blocks.map((b, index) => (
           <React.Fragment key={b.id}>
+            {/* 🟢 绿线：当拖拽到该位置上方时显示 */}
             {dragOverIndex === index && draggedIndex !== index && <div className="drop-indicator" />}
             
             <div 
@@ -203,7 +230,8 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
               <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
             </div>
             
-            {dragOverIndex === index && index === blocks.length - 1 && <div className="drop-indicator" />}
+            {/* 🟢 绿线：处理列表末尾 */}
+            {dragOverIndex === index && index === blocks.length - 1 && draggedIndex !== index && <div className="drop-indicator" />}
           </React.Fragment>
         ))}
         {blocks.length === 0 && <div style={{textAlign:'center', color:'#666', padding:'40px', border:'2px dashed #444', borderRadius:'12px'}}>👋 暂无内容，请点击上方按钮添加模块</div>}
@@ -243,91 +271,63 @@ export default function Home() {
 
   const handleNavClick = (idx) => { setNavIdx(idx); const modes = ['folder','covered','text','gallery']; setViewMode(modes[idx]); setSelectedFolder(null); };
 
-  // 🟢 保存：应用清洗，使用双换行连接块
+  // 🟢 保存：每行一个块，中间插空行
   useEffect(() => {
     if(view !== 'edit') return;
     const newContent = editorBlocks.map(b => {
       let content = b.content || '';
       if (b.type === 'text' || b.type === 'lock') content = cleanAndFormat(content); 
       if(b.type === 'h1') return `# ${content}`;
-      if(b.type === 'lock') return `:::lock ${b.pwd}\n\n${content}\n\n:::`; // 加密块内部双换行
+      if(b.type === 'lock') return `:::lock ${b.pwd}\n${content}\n:::`;
       return content;
-    }).join('\n\n'); // 块之间双换行
+    }).join('\n\n'); 
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 加载：状态机解析 (修复结构错乱)
+  // 🟢 加载：简化解析，稳定优先
   const parseContentToBlocks = (md) => {
     if(!md) return [];
-    
-    // 按行处理，不再依赖 split 切割大块，完全自主控制状态
     const lines = md.split(/\r?\n/);
     const res = [];
     
-    let buffer = [];      // 缓存当前正在读取的内容行
-    let isLocking = false;
-    let lockPwd = '123';
-    let currentType = 'text'; // 'text' | 'lock' | 'h1'
-
-    // 辅助：剥离 ![]()
     const stripMd = (str) => { const match = str.match(/(?:!|)?\[.*?\]\((.*?)\)/); return match ? match[1] : str; };
 
-    // 提交当前缓冲区
-    const flushBuffer = () => {
-      if (buffer.length > 0) {
-        // 如果是纯空行，丢弃（除了加密块内部）
-        const joined = buffer.map(stripMd).join('\n').trim();
-        if (joined) {
-           res.push({ id: Date.now() + Math.random(), type: currentType, content: joined, pwd: lockPwd });
-        }
-        buffer = [];
-      }
-    };
+    let isLocking = false;
+    let lockPwd = '';
+    let lockBody = [];
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmed = line.trim();
+        let t = lines[i].trim();
+        if(!t) continue;
 
-      // 1. 遇到空行
-      if (!trimmed) {
-        if (isLocking) {
-           buffer.push(line); // 加密块内部保留空行
-        } else {
-           flushBuffer(); // 普通文本遇到空行，视为分块信号
+        // 加密块处理
+        if(t.startsWith(':::lock')) {
+            isLocking = true;
+            lockPwd = t.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
+            continue;
         }
-        continue;
-      }
+        if(isLocking && t === ':::') {
+            isLocking = false;
+            // 提交整个加密块
+            const joined = lockBody.map(stripMd).join('\n');
+            res.push({ id: Date.now() + Math.random(), type: 'lock', pwd: lockPwd, content: joined });
+            lockBody = [];
+            continue;
+        }
+        if(isLocking) {
+            lockBody.push(t);
+            continue;
+        }
 
-      // 2. 加密块开始
-      if (!isLocking && trimmed.startsWith(':::lock')) {
-        flushBuffer(); // 提交之前的文本块
-        isLocking = true;
-        currentType = 'lock';
-        lockPwd = trimmed.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
-        continue;
-      }
+        // 标题
+        if(t.startsWith('# ')) {
+            res.push({ id: Date.now() + Math.random(), type: 'h1', content: t.replace('# ','') });
+            continue;
+        }
 
-      // 3. 加密块结束
-      if (isLocking && trimmed === ':::') {
-        flushBuffer(); // 提交这个加密块
-        isLocking = false;
-        currentType = 'text'; // 重置为默认文本
-        continue;
-      }
-
-      // 4. 标题 (独占一行)
-      if (!isLocking && trimmed.startsWith('# ')) {
-        flushBuffer();
-        res.push({ id: Date.now() + Math.random(), type: 'h1', content: trimmed.replace('# ', '') });
-        continue;
-      }
-
-      // 5. 普通内容
-      buffer.push(line);
+        // 普通文本
+        res.push({ id: Date.now() + Math.random(), type: 'text', content: stripMd(t) });
     }
-    
-    // 收尾
-    flushBuffer();
     return res;
   };
 
