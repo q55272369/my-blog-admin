@@ -13,8 +13,7 @@ const Icons = {
   Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
   Tutorial: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>,
   ChevronDown: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"></polyline></svg>,
-  // 🟢 拖拽手柄图标 (六点矩阵)
-  DragHandle: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>,
+  DragHandle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><circle cx="4" cy="6" r="2"></circle><circle cx="4" cy="12" r="2"></circle><circle cx="4" cy="18" r="2"></circle></svg>,
   Cloud: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
 };
 
@@ -58,13 +57,19 @@ const GlobalStyle = () => (
     .nav-item { position: relative; z-index: 2; padding: 8px 16px; cursor: pointer; color: #888; transition: color 0.3s; display: flex; align-items: center; justify-content: center; width: 40px; }
     .nav-item.active { color: #000; font-weight: bold; }
     
-    /* 🟢 积木拖拽系统 */
-    .block-card { background: #2a2a2e; border: 1px solid #333; border-radius: 10px; padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; transition: border 0.2s, transform 0.2s; cursor: default; }
+    /* 🟢 积木与拖拽 */
+    .block-card { 
+      background: #2a2a2e; border: 1px solid #333; border-radius: 10px; 
+      padding: 15px 15px 15px 45px; margin-bottom: 10px; position: relative; 
+      transition: border 0.2s; 
+    }
     .block-card:hover { border-color: greenyellow; }
-    /* 拖拽时的半透明幻影 */
-    .block-card.dragging { opacity: 0.3; background: #1a1a1d; border: 2px dashed greenyellow; }
+    .block-card.dragging { 
+      opacity: 0.2; 
+      border: 2px dashed greenyellow; 
+    }
     
-    /* 拖拽手柄：显眼、可交互 */
+    /* 🟢 拖拽手柄：鼠标放上去变 Grab，并激活父元素拖拽 */
     .block-drag-handle { 
         position: absolute; left: 0; top: 0; bottom: 0; width: 45px; 
         display: flex; align-items: center; justify-content: center;
@@ -74,7 +79,7 @@ const GlobalStyle = () => (
     .block-drag-handle:hover { color: greenyellow; background: rgba(173, 255, 47, 0.05); border-right: 1px solid #333; }
     .block-drag-handle:active { cursor: grabbing; }
 
-    /* 🟢 荧光绿引导线 */
+    /* 绿线 */
     .drop-indicator { height: 4px; background: greenyellow; margin: 8px 0; border-radius: 2px; box-shadow: 0 0 10px greenyellow; animation: fadeIn 0.15s ease-out; }
     @keyframes fadeIn { from { opacity: 0; transform: scaleX(0.8); } to { opacity: 1; transform: scaleX(1); } }
 
@@ -135,31 +140,26 @@ const cleanAndFormat = (input) => {
   return lines.filter(l=>l).join('\n');
 };
 
-// 🟢 核心修复：拖拽组件
+// 🟢 修复后的 BlockBuilder
 const BlockBuilder = ({ blocks, setBlocks }) => {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  // 🟢 状态：当前哪个块允许被拖拽（只有悬停手柄时才为该块ID）
+  const [draggableId, setDraggableId] = useState(null);
 
   const addBlock = (type) => setBlocks([...blocks, { id: Date.now() + Math.random(), type, content: '', pwd: '123' }]);
   const updateBlock = (id, val, key='content') => { setBlocks(blocks.map(b => b.id === id ? { ...b, [key]: val } : b)); };
   const removeBlock = (id) => { if(confirm('删除此块？')) setBlocks(blocks.filter(b => b.id !== id)); };
 
   const handleDragStart = (e, index) => {
-    // 🟢 只有按住手柄才允许拖动
-    if (!e.target.closest('.block-drag-handle')) {
-      e.preventDefault();
-      return;
-    }
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = "move";
   };
 
   const handleDragOver = (e, index) => {
     e.preventDefault();
-    // 🟢 自动滚动
     if (e.clientY < 150) window.scrollBy({ top: -10, behavior: 'smooth' });
     if (e.clientY > window.innerHeight - 150) window.scrollBy({ top: 10, behavior: 'smooth' });
-    
     if (dragOverIndex !== index) setDragOverIndex(index);
   };
 
@@ -171,6 +171,7 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
     setBlocks(newBlocks);
     setDraggedIndex(null);
     setDragOverIndex(null);
+    setDraggableId(null);
   };
 
   return (
@@ -187,18 +188,24 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
       <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
         {blocks.map((b, index) => (
           <React.Fragment key={b.id}>
-            {/* 绿线指示器 */}
             {dragOverIndex === index && draggedIndex !== index && <div className="drop-indicator" />}
             
             <div 
               className={`block-card ${draggedIndex === index ? 'dragging' : ''}`}
-              draggable="true" 
+              // 🟢 核心修复：只有当 draggableId 匹配时，才开启 HTML5 拖拽
+              draggable={draggableId === b.id}
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={handleDrop}
             >
-              {/* 🟢 拖拽手柄 */}
-              <div className="block-drag-handle"><Icons.DragHandle /></div>
+              {/* 🟢 手柄：鼠标进入时激活拖拽，离开时禁用 */}
+              <div 
+                className="block-drag-handle"
+                onMouseEnter={() => setDraggableId(b.id)}
+                onMouseLeave={() => setDraggableId(null)}
+              >
+                <Icons.DragHandle />
+              </div>
               
               <div style={{fontSize:'10px', color:'greenyellow', marginBottom:'5px', fontWeight:'bold', textTransform:'uppercase'}}>{b.type} BLOCK</div>
               
@@ -213,7 +220,6 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
               <div className="block-del" onClick={()=>removeBlock(b.id)}><Icons.Trash /></div>
             </div>
             
-            {/* 尾部绿线 */}
             {dragOverIndex === index && index === blocks.length - 1 && draggedIndex !== index && <div className="drop-indicator" />}
           </React.Fragment>
         ))}
@@ -267,7 +273,7 @@ export default function Home() {
     setForm(prev => ({ ...prev, content: newContent }));
   }, [editorBlocks]);
 
-  // 🟢 加载：使用双换行解析块 (保持块不拆分)
+  // 🟢 加载：使用双换行解析块
   const parseContentToBlocks = (md) => {
     if(!md) return [];
     const rawChunks = md.split(/\n{2,}/);
@@ -280,7 +286,7 @@ export default function Home() {
     let buffer = "";
     let isLocking = false;
 
-    for(let chunk of rawChunks) {
+    for (let chunk of rawChunks) {
         let t = chunk.trim();
         if(!t) continue;
         if(!isLocking && t.startsWith(':::lock')) {
@@ -360,11 +366,13 @@ export default function Home() {
           </main>
         ) : (
           <main style={{background:'#424242', padding:'30px', borderRadius:'20px', border:'1px solid #555'}}>
+            {/* 🟢 Step 1: 基础 + 摘要 */}
             <StepAccordion step={1} title="基础信息" isOpen={expandedStep === 1} onToggle={()=>setExpandedStep(expandedStep===1?0:1)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标题 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" value={form.title} onChange={e=>setForm({...form, title:e.target.value})} placeholder="输入文章标题..." /></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>摘要</label><input className="glow-input" value={form.excerpt} onChange={e=>setForm({...form, excerpt:e.target.value})} placeholder="输入文章摘要..." /></div>
             </StepAccordion>
 
+            {/* 🟢 Step 2: 分类 + 时间 */}
             <StepAccordion step={2} title="分类与时间" isOpen={expandedStep === 2} onToggle={()=>setExpandedStep(expandedStep===2?0:2)}>
                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px'}}>
                  <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>分类 <span style={{color: '#ff4d4f'}}>*</span></label><input className="glow-input" list="cats" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} placeholder="选择或输入分类" /><datalist id="cats">{options.categories.map(o=><option key={o} value={o}/>)}</datalist></div>
@@ -372,6 +380,7 @@ export default function Home() {
                </div>
             </StepAccordion>
 
+            {/* 🟢 Step 3: 标签 + 封面 */}
             <StepAccordion step={3} title="标签与封面" isOpen={expandedStep === 3} onToggle={()=>setExpandedStep(expandedStep===3?0:3)}>
                <div style={{marginBottom:'15px'}}><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>标签</label><input className="glow-input" value={form.tags} onChange={e=>setForm({...form, tags:e.target.value})} placeholder="Tag1, Tag2..." /><div style={{marginTop:'10px', display:'flex', flexWrap:'wrap'}}>{displayTags.map(t => <span key={t} className="tag-chip" onClick={()=>{const cur=form.tags.split(',').filter(Boolean); if(!cur.includes(t)) setForm({...form, tags:[...cur,t].join(',')})}}>{t}<div className="tag-del" onClick={(e)=>{e.stopPropagation(); deleteTagOption(e, t)}}>×</div></span>)}{options.tags.length > 12 && <span onClick={()=>setShowAllTags(!showAllTags)} style={{fontSize:'12px', color:'greenyellow', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>{showAllTags ? '收起' : `...`}</span>}</div></div>
                <div><label style={{display:'block', fontSize:'11px', color:'#bbb', marginBottom:'5px'}}>封面图 URL (自动清洗)</label><input className="glow-input" value={form.cover} onChange={e=>setForm({...form, cover:e.target.value})} onBlur={e=>{setForm({...form, cover: cleanAndFormat(e.target.value).replace(/!\[.*\]\((.*)\)/, '$1')})}} placeholder="粘贴链接，自动去除多余参数..." /></div>
