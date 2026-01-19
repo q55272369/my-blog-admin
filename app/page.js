@@ -168,10 +168,10 @@ const BlockBuilder = ({ blocks, setBlocks }) => {
   };
 
   const getBlockLabel = (type) => {
-      if (type === 'h1') return 'H1 标题';
-      if (type === 'lock') return '🔒 加密内容';
+      if (type === 'h1') return '标题块';
+      if (type === 'lock') return '🔒 加密块';
       if (type === 'note') return '💬 注释块'; // 🟢 新增
-      return '📄 文本内容';
+      return '📄 内容块';
   };
 
   return (
