@@ -8,14 +8,14 @@ const n2m = new NotionToMarkdown({ notionClient: notion });
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// 辅助：将大块内部的文本行转换为 Notion 子积木
+// 辅助：解析行内容
 function parseLinesToChildren(text) {
   const lines = text.split(/\r?\n/);
   const blocks = [];
   
   for (let line of lines) {
     const trimmed = line.trim();
-    if (!trimmed) continue; // 块内部的空行忽略，保持紧凑，或者改为 push paragraph "" 保留空行
+    if (!trimmed) continue;
 
     // 1. 媒体识别
     const mediaMatch = trimmed.match(/(?:!|)?\[.*?\]\((.*?)\)/);
@@ -23,7 +23,6 @@ function parseLinesToChildren(text) {
       let url = mediaMatch[1].trim();
       const safeUrl = url.includes('%') ? url : encodeURI(url);
       const isVideo = url.match(/\.(mp4|mov|webm|ogg|mkv)(\?|$)/i);
-      
       if (isVideo) {
         blocks.push({ object: 'block', type: 'video', video: { type: 'external', external: { url: safeUrl } } });
       } else {
@@ -37,23 +36,27 @@ function parseLinesToChildren(text) {
       blocks.push({ object: 'block', type: 'heading_1', heading_1: { rich_text: [{ text: { content: trimmed.replace('# ', '') } }] } });
       continue;
     } 
-    if (trimmed.startsWith('## ')) {
-      blocks.push({ object: 'block', type: 'heading_2', heading_2: { rich_text: [{ text: { content: trimmed.replace('## ', '') } }] } });
-      continue;
+
+    // 🟢 3. 注释块 (新功能)：如果整行被反引号包裹，转为红色代码样式
+    if (trimmed.startsWith('`') && trimmed.endsWith('`') && trimmed.length > 1) {
+       const content = trimmed.slice(1, -1);
+       blocks.push({ 
+           object: 'block', type: 'paragraph', 
+           paragraph: { rich_text: [{ text: { content: content }, annotations: { code: true, color: 'red' } }] } 
+       });
+       continue;
     }
 
-    // 3. 普通文本
+    // 4. 普通文本
     blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ text: { content: trimmed } }] } });
   }
   return blocks;
 }
 
 function mdToBlocks(markdown) {
-  // 🟢 1. 初步切分：按双换行切分 (保持块独立性的关键)
   const rawChunks = markdown.split(/\n{2,}/);
   const blocks = [];
   
-  // 🟢 2. 智能缝合 (修复加密块被双换行切断的问题)
   let mergedChunks = [];
   let buffer = "";
   let isLocking = false;
@@ -64,59 +67,46 @@ function mdToBlocks(markdown) {
 
     if (!isLocking && t.startsWith(':::lock')) {
       if (t.endsWith(':::')) {
-        // 完整的加密块
         mergedChunks.push(t);
       } else {
-        // 破碎的加密块头，开始缝合
         isLocking = true;
         buffer = t;
       }
     } else if (isLocking) {
-      // 正在缝合中...补回被切掉的双换行
       buffer += "\n\n" + t;
       if (t.endsWith(':::')) {
-        // 缝合结束
         isLocking = false;
         mergedChunks.push(buffer);
         buffer = "";
       }
     } else {
-      // 普通块
       mergedChunks.push(t);
     }
   }
-  // 兜底：如果循环结束还在缝合(异常)，把剩下的存进去
   if (buffer) mergedChunks.push(buffer);
 
-  // 🟢 3. 生成 Notion 积木
   for (let content of mergedChunks) {
     // A. 加密块处理
     if (content.startsWith(':::lock')) {
         const firstLineEnd = content.indexOf('\n');
-        // 提取密码 (第一行)
         const header = content.substring(0, firstLineEnd > -1 ? firstLineEnd : content.length);
-        const pwd = header.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim() || '123';
         
-        // 提取内容 (中间部分)
-        let body = "";
-        if (firstLineEnd > -1) {
-            body = content.substring(firstLineEnd + 1).replace(/\n:::$/, '').trim();
-        }
-
+        // 🟢 修复：不再强制 '123'，允许空密码
+        let pwd = header.replace(':::lock', '').replace(/[>*\s🔒]/g, '').trim(); 
+        
+        const body = content.replace(/^:::lock.*?\n/, '').replace(/\n:::$/, '').trim();
+        
         blocks.push({ 
             object: 'block', type: 'callout', 
             callout: { 
                 rich_text: [{ text: { content: `LOCK:${pwd}` }, annotations: { bold: true } }], 
                 icon: { type: "emoji", emoji: "🔒" }, color: "gray_background", 
-                // 递归处理内部内容
                 children: [ { object: 'block', type: 'divider', divider: {} }, ...parseLinesToChildren(body) ] 
             } 
         });
         continue;
     }
-
-    // B. 普通内容处理
-    // 直接调用解析器，把这个大块里的每一行转为子积木
+    // B. 普通处理
     blocks.push(...parseLinesToChildren(content));
   }
   return blocks;
@@ -128,25 +118,26 @@ export async function GET(request) {
   try {
     const page = await notion.pages.retrieve({ page_id: id });
     const mdblocks = await n2m.pageToMarkdown(id);
-    
     let rawBlocks = [];
     try { const blocksRes = await notion.blocks.children.list({ block_id: id }); rawBlocks = blocksRes.results; } catch (e) {}
 
     mdblocks.forEach(b => {
+      // 🟢 修复：处理注释块 (NotionToMD 会把 code style 转为 `text`)
+      // 这里的逻辑主要依赖前端 parseContentToBlocks 去识别反引号
+      
       if (b.type === 'callout' && b.parent.includes('LOCK:')) {
-        const pwd = b.parent.match(/LOCK:([a-zA-Z0-9]+)/)?.[1] || '123';
+        const pwdMatch = b.parent.match(/LOCK:(.*?)(\n|$)/);
+        const pwd = pwdMatch ? pwdMatch[1].trim() : ''; // 🟢 允许空密码
+        
         const parts = b.parent.split('---');
         let body = parts.length > 1 ? parts.slice(1).join('---') : parts[0].replace(/LOCK:.*\n?/, '');
         body = body.replace(/^>[ \t]*/gm, '').trim(); 
-        // 🟢 恢复加密块格式：头 + 双换行 + 内容 + 双换行 + 尾
         b.parent = `:::lock ${pwd}\n\n${body}\n\n:::`; 
       }
     });
 
     const mdStringObj = n2m.toMarkdownString(mdblocks);
-    
-    // 🟢 关键：读取时不要压缩双换行，保留 \n\n 结构，这样前端才能识别出独立的块
-    let cleanContent = mdStringObj.parent;
+    const cleanContent = mdStringObj.parent.trim();
 
     const p = page.properties;
     return NextResponse.json({
@@ -161,7 +152,7 @@ export async function GET(request) {
         status: p.status?.status?.name || 'Published',
         date: p.date?.date?.start || '',
         type: p.type?.select?.name || 'Post',
-        content: cleanContent, 
+        content: cleanContent,
         rawBlocks: rawBlocks
       }
     });
